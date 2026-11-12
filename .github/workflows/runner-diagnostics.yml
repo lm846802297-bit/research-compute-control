@@ -1,0 +1,26 @@
+name: Windows runner diagnostics
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  diagnostics:
+    runs-on: [self-hosted, Windows, X64, research-gpu]
+    timeout-minutes: 10
+    steps:
+      - name: Check Windows hardware and Python
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host 'Processor:'
+          Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors | Format-List
+          Write-Host 'Physical memory (bytes):'
+          Get-CimInstance Win32_ComputerSystem | Select-Object TotalPhysicalMemory | Format-List
+          Write-Host 'GPU:'
+          & nvidia-smi
+          if ($LASTEXITCODE -ne 0) { throw 'nvidia-smi failed' }
+          Write-Host 'Python:'
+          $python = Get-Command python -ErrorAction SilentlyContinue
+          if ($python) { & python --version } else { Write-Host 'Python not found on the runner service PATH.' }
