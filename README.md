@@ -25,7 +25,6 @@ The custom label is mandatory for the diagnostic. A GPU label does not install d
 - The default `GITHUB_TOKEN` does not automatically grant write access to a different research repo. Review results first; any automated cross-repository publishing requires separate narrowly scoped credentials and explicit configuration. Treat run artifacts as belonging to this control repository and subject to retention limits.
 - Never overwrite research files or treat a passing technical diagnostic as validation of a physical result.
 
-
 ## CI is optional; compute execution does not depend on CI
 
 CI status checks are optional and are not prerequisites for research calculations, numerical validation, artifact handoff, pull-request creation, review, or merge.
