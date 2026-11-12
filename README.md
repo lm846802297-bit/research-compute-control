@@ -26,6 +26,17 @@ The custom label is mandatory for the diagnostic. A GPU label does not install d
 - Never overwrite research files or treat a passing technical diagnostic as validation of a physical result.
 
 
+## CI is optional; compute execution does not depend on CI
+
+CI status checks are optional and are not prerequisites for research calculations, numerical validation, artifact handoff, pull-request creation, review, or merge.
+
+- Run calculations directly on an available local machine or an approved runner when that is the most effective route. Do not wait for a CI job to start, continue, or finish research.
+- GitHub Actions in this repository may be used as an explicitly reviewed, manually dispatched compute or artifact-handoff mechanism. Such a job is an execution run, not a mandatory CI gate. Its provenance, source revision, inputs, settings, logs, and outputs must still be recorded.
+- Scientific and numerical checks remain governed by the research repository's acceptance criteria and may be performed locally or on an approved runner. A CI pass does not replace them.
+- If CI is queued, unavailable, disabled, blocked by account/billing limits, cancelled, or fails for infrastructure reasons, continue through an available execution route and record the CI status accurately. Do not report an unrun check as passed or treat an infrastructure failure as a scientific failure.
+- Do not require CI status checks as branch-protection gates under this policy. Review and merge decisions depend on the actual diff, provenance, reproducibility, and scientific evidence. Do not change repository protection settings without explicit authorization.
+- CI is required for a particular task only when the author explicitly requests it.
+
 ## Research result artifact handoff — mandatory
 
 Workflow artifacts in this control repository are temporary transfer products, not the permanent research archive. When a calculation artifact or result bundle is downloaded for publication to a research repository:
