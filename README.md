@@ -4,7 +4,7 @@ Private control repository for trusted research jobs on a Windows self-hosted ru
 
 ## Current status
 
-Only the manual hardware diagnostic is configured. No research calculation, reusable workflow, result upload, or automatic push to research repositories is configured or validated yet.
+The manual Windows hardware/runtime diagnostic and a manually dispatched Xe-131 native Mathematica/Python full-cross-section workflow are configured. The calculation workflow is pinned to a reviewed LZ research commit and uploads an artifact to this control repository; it has not yet been executed or scientifically validated. No automatic publishing to research repositories is configured.
 
 ## Register the Windows runner
 
