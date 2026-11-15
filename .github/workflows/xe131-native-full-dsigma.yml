@@ -2,6 +2,15 @@ name: Xe-131 native Mathematica full dSigma and Python comparison
 
 on:
   workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "Run a quick smoke test first, or the full 652-row grid"
+        required: true
+        type: choice
+        options:
+          - smoke
+          - full
+        default: smoke
 
 permissions:
   contents: read
@@ -10,6 +19,8 @@ jobs:
   xe131-native-full-dsigma:
     runs-on: [self-hosted, Windows, X64, research-gpu]
     timeout-minutes: 360
+    env:
+      RUN_MODE: ${{ inputs.run_mode }}
     steps:
       - name: Check out the private control repository
         uses: actions/checkout@v4
@@ -85,7 +96,15 @@ jobs:
           $transcript = Join-Path $out 'native-full-dsigma-transcript.txt'
           Start-Transcript -Path $transcript -Force
           try {
-            & (Join-Path $study 'run_native_full_dsigma_windows.ps1') -OutputDirectory $out -NW 16 -NZ 16 -NPhi 8 -RelativeTolerance 2e-7 -ResponseTolerance 2e-8
+            if ($env:RUN_MODE -eq 'smoke') {
+              & (Join-Path $study 'run_native_full_dsigma_windows.ps1') -OutputDirectory $out -Benchmark 'green_ms300_dm1' -ERListKeV '200' -NW 8 -NZ 8 -NPhi 4 -RelativeTolerance 2e-7 -ResponseTolerance 2e-8 -RequireFullGrid:$false
+            }
+            elseif ($env:RUN_MODE -eq 'full') {
+              & (Join-Path $study 'run_native_full_dsigma_windows.ps1') -OutputDirectory $out -NW 16 -NZ 16 -NPhi 8 -RelativeTolerance 2e-7 -ResponseTolerance 2e-8 -RequireFullGrid:$true
+            }
+            else {
+              throw "Unknown run mode: $env:RUN_MODE"
+            }
             if ($LASTEXITCODE -ne 0) {
               throw "Native Mathematica/Python runner exited with code $LASTEXITCODE."
             }
@@ -112,8 +131,9 @@ jobs:
           $comparisonRows = @(Import-Csv $comparisonCsv)
           $nativeRows = @(Import-Csv $mathematicaCsv)
           if ($comparison.status -ne 'PASS') { throw "Comparator status is $($comparison.status), not PASS." }
-          if ($comparison.rows -ne 652 -or $comparisonRows.Count -ne 652 -or $nativeRows.Count -ne 652) {
-            throw "Expected 652 rows in both full-grid outputs; comparison metadata=$($comparison.rows), comparison CSV=$($comparisonRows.Count), Mathematica CSV=$($nativeRows.Count)."
+          $expectedRows = if ($env:RUN_MODE -eq 'smoke') { 4 } elseif ($env:RUN_MODE -eq 'full') { 652 } else { throw "Unknown run mode: $env:RUN_MODE" }
+          if ($comparison.rows -ne $expectedRows -or $comparisonRows.Count -ne $expectedRows -or $nativeRows.Count -ne $expectedRows) {
+            throw "Expected $expectedRows rows for mode $env:RUN_MODE; comparison metadata=$($comparison.rows), comparison CSV=$($comparisonRows.Count), Mathematica CSV=$($nativeRows.Count)."
           }
           if ($null -eq $native.AFH.max_full_grid_factor_four_relative_residual -or
               $native.AFH.max_full_grid_factor_four_relative_residual -gt 2e-12) {
@@ -147,11 +167,12 @@ jobs:
             wolfram_version = $wolframVersion
             python_version = $pythonVersion
             calculation = [ordered]@{
-              recoil_grid_keV = '5:5:800 plus explicit 101, 200, 267, 542 keV anchors'
-              expected_rows = 652
-              nW = 16
-              nz = 16
-              nphi = 8
+              run_mode = $env:RUN_MODE
+              recoil_grid_keV = if ($env:RUN_MODE -eq 'smoke') { '101, 200, 267, 542 keV anchors; green benchmark only' } else { '5:5:800 plus explicit 101, 200, 267, 542 keV anchors' }
+              expected_rows = $expectedRows
+              nW = if ($env:RUN_MODE -eq 'smoke') { 8 } else { 16 }
+              nz = if ($env:RUN_MODE -eq 'smoke') { 8 } else { 16 }
+              nphi = if ($env:RUN_MODE -eq 'smoke') { 4 } else { 8 }
               width_scheme = 'pole'
               W2_mapping = 'threshold_u2'
               comparison_rtol_I6_dsigma = 2e-7
@@ -189,7 +210,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xe131-native-mathematica-full-dsigma
+          name: xe131-native-mathematica-${{ inputs.run_mode }}
           path: ${{ runner.temp }}/lz-xe131-full-dsigma/
           if-no-files-found: warn
           retention-days: 90
