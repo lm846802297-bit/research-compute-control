@@ -158,6 +158,18 @@ jobs:
           if ($actual -ne $expected) { throw 'Pinned research checkout changed during execution.' }
           $wolframVersion = (Get-Content -Raw (Join-Path $out 'wolfram-version.txt')).Trim()
           $pythonVersion = (Get-Content -Raw (Join-Path $out 'python-version.txt')).Trim()
+          if ($env:RUN_MODE -eq 'smoke') {
+            $gridLabel = '101, 200, 267, 542 keV anchors; green benchmark only'
+            $runNW = 8
+            $runNZ = 8
+            $runNPhi = 4
+          }
+          else {
+            $gridLabel = '5:5:800 plus explicit 101, 200, 267, 542 keV anchors'
+            $runNW = 16
+            $runNZ = 16
+            $runNPhi = 8
+          }
           $manifest = [ordered]@{
             status = 'PASS'
             repository = 'lm846802297-bit/LZ-3-body-for-hdm'
@@ -168,11 +180,11 @@ jobs:
             python_version = $pythonVersion
             calculation = [ordered]@{
               run_mode = $env:RUN_MODE
-              recoil_grid_keV = if ($env:RUN_MODE -eq 'smoke') { '101, 200, 267, 542 keV anchors; green benchmark only' } else { '5:5:800 plus explicit 101, 200, 267, 542 keV anchors' }
+              recoil_grid_keV = $gridLabel
               expected_rows = $expectedRows
-              nW = if ($env:RUN_MODE -eq 'smoke') { 8 } else { 16 }
-              nz = if ($env:RUN_MODE -eq 'smoke') { 8 } else { 16 }
-              nphi = if ($env:RUN_MODE -eq 'smoke') { 4 } else { 8 }
+              nW = $runNW
+              nz = $runNZ
+              nphi = $runNPhi
               width_scheme = 'pole'
               W2_mapping = 'threshold_u2'
               comparison_rtol_I6_dsigma = 2e-7
