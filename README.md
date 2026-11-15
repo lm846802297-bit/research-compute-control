@@ -46,17 +46,20 @@ Before running it:
    wolframscript -version are available on the runner account. Wolfram
    Engine/Mathematica must already be installed and activated on that machine.
 4. Under Actions, manually run **Xe-131 native Mathematica full dSigma and
-   Python comparison** on main.
+   Python comparison** on main with run_mode=smoke first. After the smoke
+   comparison passes, run it again with run_mode=full.
 
 The workflow pins the research source SHA rather than checking out a moving
-branch. It uses nW,nz,nphi=(16,16,8), the pole-width prescription,
-threshold-u2 mapping, the full 5--800 keV grid plus explicit 101, 200,
-267 and 542 keV anchors, 2e-7 relative tolerance for I6 and dSigma/dER,
-and 2e-8 for the PCHIP response translation. It checks the factor-four
-response mapping and the independent no-factor-four control at 2e-12.
+branch. The default smoke mode runs the green benchmark at the four explicit
+101, 200, 267 and 542 keV anchors with nW,nz,nphi=(8,8,4). The full mode uses
+all four benchmarks on the complete 5--800 keV grid plus those anchors, with
+nW,nz,nphi=(16,16,8). Both use the pole-width prescription and threshold-u2
+mapping, 2e-7 relative tolerance for I6 and dSigma/dER, and 2e-8 for the PCHIP
+response translation. Both check the factor-four response mapping and the
+independent no-factor-four control at 2e-12.
 
-The run uploads xe131-native-mathematica-full-dsigma to this control
-repository. The artifact contains the native Mathematica CSV/metadata,
+The smoke run uploads xe131-native-mathematica-smoke; the full run uploads
+xe131-native-mathematica-full to this control repository. The artifact contains the native Mathematica CSV/metadata,
 pointwise Mathematica--Python comparison CSV/JSON, execution transcript,
 runtime versions, run manifest, and SHA-256 manifest. The workflow does not
 push to the LZ research repository. Treat the artifact as a transfer bundle:
