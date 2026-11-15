@@ -56,7 +56,10 @@ all four benchmarks on the complete 5--800 keV grid plus those anchors, with
 nW,nz,nphi=(16,16,8). Both use the pole-width prescription and threshold-u2
 mapping, 2e-7 relative tolerance for I6 and dSigma/dER, and 2e-8 for the PCHIP
 response translation. Both check the factor-four response mapping and the
-independent no-factor-four control at 2e-12.
+independent no-factor-four control at 2e-12. The kinematic acceptance also
+requires all 4 smoke anchors to be open and, in full mode, the independently
+audited open-row counts red/green/black/blue = 157/134/75/134 (500 total),
+with positive clearance from the on-shell chi2 pole.
 
 The smoke run uploads xe131-native-mathematica-smoke; the full run uploads
 xe131-native-mathematica-full to this control repository. The artifact contains the native Mathematica CSV/metadata,
