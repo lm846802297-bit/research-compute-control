@@ -30,7 +30,7 @@ The custom label is mandatory for the diagnostic. A GPU label does not install d
 A manually dispatched Windows self-hosted workflow is provided at
 [xe131-native-full-dsigma.yml](.github/workflows/xe131-native-full-dsigma.yml).
 It checks out the reviewed LZ research revision
-60443717f66e72f84fdb04232e7a74398a95916d, runs the native Wolfram Language
+2b2c25ce9aa142b8f7a648b33a051e801ec76418, runs the native Wolfram Language
 Eq. (6) calculation, and compares every point with an independent Python
 recomputation. It does not publish or modify the research repository.
 
