@@ -135,6 +135,36 @@ jobs:
           if ($comparison.rows -ne $expectedRows -or $comparisonRows.Count -ne $expectedRows -or $nativeRows.Count -ne $expectedRows) {
             throw "Expected $expectedRows rows for mode $env:RUN_MODE; comparison metadata=$($comparison.rows), comparison CSV=$($comparisonRows.Count), Mathematica CSV=$($nativeRows.Count)."
           }
+          $expectedOpenRows = if ($env:RUN_MODE -eq 'smoke') { 4 } else { 500 }
+          if ($comparison.open_phase_space_rows -ne $expectedOpenRows) {
+            throw "Expected $expectedOpenRows open phase-space rows, got $($comparison.open_phase_space_rows)."
+          }
+          $openCounts = @{}
+          foreach ($group in ($nativeRows | Group-Object benchmark)) {
+            $openCounts[$group.Name] = @($group.Group | Where-Object { [int]$_.phase_space_open -eq 1 }).Count
+          }
+          if ($env:RUN_MODE -eq 'smoke') {
+            if ($openCounts['green_ms300_dm1'] -ne 4) {
+              throw 'All four green smoke anchors must be phase-space open.'
+            }
+          }
+          else {
+            $expectedByBenchmark = @{
+              red_ms200_dm1 = 157
+              green_ms300_dm1 = 134
+              black_ms360_dm1 = 75
+              blue_ms300_dm10 = 134
+            }
+            foreach ($name in $expectedByBenchmark.Keys) {
+              if ($openCounts[$name] -ne $expectedByBenchmark[$name]) {
+                throw "Unexpected open-row count for $name: $($openCounts[$name])."
+              }
+            }
+          }
+          if ($null -eq $native.AFH.minimum_chi2_pole_clearance_keV -or
+              $native.AFH.minimum_chi2_pole_clearance_keV -le 0) {
+            throw 'The full-grid kinematic preflight did not establish a positive chi2 pole clearance.'
+          }
           if ($null -eq $native.AFH.max_full_grid_factor_four_relative_residual -or
               $native.AFH.max_full_grid_factor_four_relative_residual -gt 2e-12) {
             throw 'Mathematica full-grid factor-four ledger is missing or exceeds tolerance.'
