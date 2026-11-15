@@ -1,0 +1,176 @@
+name: Xe-131 native Mathematica full dSigma and Python comparison
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  xe131-native-full-dsigma:
+    runs-on: [self-hosted, Windows, X64, research-gpu]
+    timeout-minutes: 360
+    steps:
+      - name: Check out the private control repository
+        uses: actions/checkout@v4
+
+      - name: Check out the reviewed LZ research revision
+        uses: actions/checkout@v4
+        with:
+          repository: lm846802297-bit/LZ-3-body-for-hdm
+          ref: b79e03db74924820b168a22167a0fb18c1c2bb45
+          token: ${{ secrets.LZ_RESEARCH_READ_TOKEN }}
+          path: research
+          persist-credentials: false
+
+      - name: Verify pinned source and required native inputs
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = 'b79e03db74924820b168a22167a0fb18c1c2bb45'
+          $actual = (git -C "$env:GITHUB_WORKSPACE\research" rev-parse HEAD).Trim()
+          if ($actual -ne $expected) {
+            throw "Research source SHA mismatch: expected $expected, got $actual"
+          }
+          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_default_density_xe131'
+          $required = @(
+            'run_native_full_dsigma_windows.ps1',
+            'run_afh_eq6_full_dsigma.wls',
+            'compare_full_dsigma_mathematica.py',
+            'output\afh_default_xe131_WM00.csv',
+            'output\native_exports\afh_default_xe131_WM00_mathematica.csv'
+          )
+          foreach ($relative in $required) {
+            $path = Join-Path $study $relative
+            if (-not (Test-Path $path -PathType Leaf)) {
+              throw "Required pinned research input is missing: $path"
+            }
+          }
+          Write-Host "Verified research source commit $actual"
+          Get-FileHash (Join-Path $study 'output\native_exports\afh_default_xe131_WM00_mathematica.csv') -Algorithm SHA256
+          Get-FileHash (Join-Path $study 'output\afh_default_xe131_WM00.csv') -Algorithm SHA256
+
+      - name: Verify Wolfram and prepare isolated Python environment
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $wolfram = Get-Command wolframscript -ErrorAction Stop
+          $wolframVersion = & $wolfram.Source -version 2>&1
+          if ($LASTEXITCODE -ne 0) { throw 'wolframscript -version failed.' }
+          $python = Get-Command python -ErrorAction Stop
+          $venv = Join-Path $env:RUNNER_TEMP 'lz-xe131-python-venv'
+          & $python.Source -m venv $venv
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create the isolated Python environment.' }
+          $pythonExe = Join-Path $venv 'Scripts\python.exe'
+          & $pythonExe -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { throw 'pip upgrade failed.' }
+          & $pythonExe -m pip install -r "$env:GITHUB_WORKSPACE\research\research\afh_default_density_xe131\requirements.txt"
+          if ($LASTEXITCODE -ne 0) { throw 'Research Python dependencies could not be installed.' }
+          & $pythonExe -c 'import numpy, pandas, scipy; print("NumPy", numpy.__version__, "pandas", pandas.__version__, "SciPy", scipy.__version__)'
+          if ($LASTEXITCODE -ne 0) { throw 'Required Python imports failed.' }
+          $env:PATH = "$(Join-Path $venv 'Scripts');$env:PATH"
+          $out = Join-Path $env:RUNNER_TEMP 'lz-xe131-full-dsigma'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          @($wolframVersion) | Set-Content -Path (Join-Path $out 'wolfram-version.txt') -Encoding UTF8
+          & $pythonExe --version 2>&1 | Set-Content -Path (Join-Path $out 'python-version.txt') -Encoding UTF8
+
+      - name: Run native Mathematica and independent Python comparison
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $venv = Join-Path $env:RUNNER_TEMP 'lz-xe131-python-venv'
+          $env:PATH = "$(Join-Path $venv 'Scripts');$env:PATH"
+          $out = Join-Path $env:RUNNER_TEMP 'lz-xe131-full-dsigma'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_default_density_xe131'
+          $transcript = Join-Path $out 'native-full-dsigma-transcript.txt'
+          Start-Transcript -Path $transcript -Force
+          try {
+            & (Join-Path $study 'run_native_full_dsigma_windows.ps1') -OutputDirectory $out -NW 16 -NZ 16 -NPhi 8 -RelativeTolerance 2e-7 -ResponseTolerance 2e-8
+            if ($LASTEXITCODE -ne 0) {
+              throw "Native Mathematica/Python runner exited with code $LASTEXITCODE."
+            }
+          }
+          finally {
+            Stop-Transcript
+          }
+
+      - name: Validate full grid, factor-four ledger, and archive provenance
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'lz-xe131-full-dsigma'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_default_density_xe131'
+          $comparisonPath = Join-Path $out 'mathematica_python_full_dsigma_comparison.json'
+          $mathematicaPath = Join-Path $out 'mathematica_full_dsigma_xe131_metadata.json'
+          $comparisonCsv = Join-Path $out 'mathematica_python_full_dsigma_comparison.csv'
+          $mathematicaCsv = Join-Path $out 'mathematica_full_dsigma_xe131.csv'
+          foreach ($path in @($comparisonPath, $mathematicaPath, $comparisonCsv, $mathematicaCsv)) {
+            if (-not (Test-Path $path -PathType Leaf)) { throw "Missing expected result: $path" }
+          }
+          $comparison = Get-Content -Raw $comparisonPath | ConvertFrom-Json
+          $native = Get-Content -Raw $mathematicaPath | ConvertFrom-Json
+          $comparisonRows = @(Import-Csv $comparisonCsv)
+          $nativeRows = @(Import-Csv $mathematicaCsv)
+          if ($comparison.status -ne 'PASS') { throw "Comparator status is $($comparison.status), not PASS." }
+          if ($comparison.rows -ne 652 -or $comparisonRows.Count -ne 652 -or $nativeRows.Count -ne 652) {
+            throw "Expected 652 rows in both full-grid outputs; comparison metadata=$($comparison.rows), comparison CSV=$($comparisonRows.Count), Mathematica CSV=$($nativeRows.Count)."
+          }
+          if ($native.AFH.max_full_grid_factor_four_relative_residual -gt 2e-12) {
+            throw 'Mathematica full-grid factor-four ledger exceeds tolerance.'
+          }
+          if ($comparison.max_relative_differences.factor4_mapping -gt 2e-12 -or
+              $comparison.max_relative_differences.factor4_ratio -gt 2e-12) {
+            throw 'Python/Mathematica factor-four mapping or ratio exceeds tolerance.'
+          }
+          $expected = 'b79e03db74924820b168a22167a0fb18c1c2bb45'
+          $actual = (git -C "$env:GITHUB_WORKSPACE\research" rev-parse HEAD).Trim()
+          if ($actual -ne $expected) { throw 'Pinned research checkout changed during execution.' }
+          $wolframVersion = (Get-Content -Raw (Join-Path $out 'wolfram-version.txt')).Trim()
+          $pythonVersion = (Get-Content -Raw (Join-Path $out 'python-version.txt')).Trim()
+          $manifest = [ordered]@{
+            status = 'PASS'
+            repository = 'lm846802297-bit/LZ-3-body-for-hdm'
+            source_commit = $actual
+            control_run_id = $env:GITHUB_RUN_ID
+            control_run_attempt = $env:GITHUB_RUN_ATTEMPT
+            wolfram_version = $wolframVersion
+            python_version = $pythonVersion
+            calculation = [ordered]@{
+              recoil_grid_keV = '5:5:800 plus explicit 101, 200, 267, 542 keV anchors'
+              expected_rows = 652
+              nW = 16
+              nz = 16
+              nphi = 8
+              width_scheme = 'pole'
+              W2_mapping = 'threshold_u2'
+              comparison_rtol_I6_dsigma = 2e-7
+              comparison_rtol_AFH_response = 2e-8
+              exact_factor4_tolerance = 2e-12
+            }
+            comparison = $comparison
+            native_metadata = $native
+            input_sha256 = [ordered]@{
+              python_AFH_response = (Get-FileHash (Join-Path $study 'output\afh_default_xe131_WM00.csv') -Algorithm SHA256).Hash.ToLower()
+              native_Mathematica_AFH_response = (Get-FileHash (Join-Path $study 'output\native_exports\afh_default_xe131_WM00_mathematica.csv') -Algorithm SHA256).Hash.ToLower()
+            }
+          }
+          $manifest | ConvertTo-Json -Depth 12 | Set-Content -Path (Join-Path $out 'run_manifest.json') -Encoding UTF8
+          $hashLines = Get-ChildItem $out -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' } | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)"
+          }
+          $hashLines | Set-Content -Path (Join-Path $out 'SHA256SUMS.txt') -Encoding ASCII
+          Write-Host "PASS: $($comparison.rows) pointwise rows."
+          Write-Host "Max I6 relative difference: $($comparison.max_relative_differences.I6)"
+          Write-Host "Max dSigma relative difference: $($comparison.max_relative_differences.dsigma)"
+          Write-Host "Max factor-four mapping residual: $($comparison.max_relative_differences.factor4_mapping)"
+          Write-Host "Max factor-four ratio residual: $($comparison.max_relative_differences.factor4_ratio)"
+
+      - name: Upload native Mathematica and Python comparison archive
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xe131-native-mathematica-full-dsigma
+          path: ${{ runner.temp }}/lz-xe131-full-dsigma/
+          if-no-files-found: warn
+          retention-days: 90
