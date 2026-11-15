@@ -24,3 +24,6 @@ jobs:
           Write-Host 'Python:'
           $python = Get-Command python -ErrorAction SilentlyContinue
           if ($python) { & python --version } else { Write-Host 'Python not found on the runner service PATH.' }
+          Write-Host 'Wolfram:'
+          $wolfram = Get-Command wolframscript -ErrorAction SilentlyContinue
+          if ($wolfram) { & $wolfram.Source -version } else { Write-Warning 'wolframscript not found on the runner service PATH.' }
