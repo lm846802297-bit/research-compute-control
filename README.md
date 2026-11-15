@@ -25,6 +25,48 @@ The custom label is mandatory for the diagnostic. A GPU label does not install d
 - The default `GITHUB_TOKEN` does not automatically grant write access to a different research repo. Review results first; any automated cross-repository publishing requires separate narrowly scoped credentials and explicit configuration. Treat run artifacts as belonging to this control repository and subject to retention limits.
 - Never overwrite research files or treat a passing technical diagnostic as validation of a physical result.
 
+## Native Xe-131 Mathematica full-cross-section run
+
+A manually dispatched Windows self-hosted workflow is provided at
+[xe131-native-full-dsigma.yml](.github/workflows/xe131-native-full-dsigma.yml).
+It checks out the reviewed LZ research revision
+b79e03db74924820b168a22167a0fb18c1c2bb45, runs the native Wolfram Language
+Eq. (6) calculation, and compares every point with an independent Python
+recomputation. It does not publish or modify the research repository.
+
+Before running it:
+
+1. Register the Windows runner described above and confirm it is Online/Idle.
+2. In this control repository, add an Actions repository secret named
+   LZ_RESEARCH_READ_TOKEN. Use a fine-grained token restricted to
+   lm846802297-bit/LZ-3-body-for-hdm with **Contents: Read-only**. This is
+   required because the research repository is private; the control
+   repository's GITHUB_TOKEN cannot read it.
+3. Run **Windows runner diagnostics** first. Confirm Python and
+   wolframscript -version are available on the runner account. Wolfram
+   Engine/Mathematica must already be installed and activated on that machine.
+4. Under Actions, manually run **Xe-131 native Mathematica full dSigma and
+   Python comparison** on main.
+
+The workflow pins the research source SHA rather than checking out a moving
+branch. It uses nW,nz,nphi=(16,16,8), the pole-width prescription,
+threshold-u2 mapping, the full 5--800 keV grid plus explicit 101, 200,
+267 and 542 keV anchors, 2e-7 relative tolerance for I6 and dSigma/dER,
+and 2e-8 for the PCHIP response translation. It checks the factor-four
+response mapping and the independent no-factor-four control at 2e-12.
+
+The run uploads xe131-native-mathematica-full-dsigma to this control
+repository. The artifact contains the native Mathematica CSV/metadata,
+pointwise Mathematica--Python comparison CSV/JSON, execution transcript,
+runtime versions, run manifest, and SHA-256 manifest. The workflow does not
+push to the LZ research repository. Treat the artifact as a transfer bundle:
+review it, extract it, then commit the individual result files and manifests
+to the research repository under its existing output structure.
+
+The source SHA is intentionally fixed. After reviewing a new research commit,
+update the pin in the workflow and this README together; do not replace it
+with a moving branch or an unreviewed workflow input.
+
 ## CI is optional; compute execution does not depend on CI
 
 CI status checks are optional and are not prerequisites for research calculations, numerical validation, artifact handoff, pull-request creation, review, or merge.
