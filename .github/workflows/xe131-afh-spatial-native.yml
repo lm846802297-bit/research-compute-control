@@ -1,0 +1,171 @@
+name: Xe-129/131 native AFH spatial-response cross-check
+
+on:
+  push:
+    paths:
+      - ".github/workflows/xe131-afh-spatial-native.yml"
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Exact reviewed LZ-3-body-for-hdm commit SHA"
+        required: true
+        type: string
+        default: "f29209247b4f4124549ca0ee8f164bb5add30b1b"
+
+permissions:
+  contents: read
+
+jobs:
+  native-spatial-response:
+    runs-on: [self-hosted, Windows, X64, research-gpu]
+    timeout-minutes: 180
+    env:
+      SOURCE_SHA: ${ github.event.inputs.source_sha || 'f29209247b4f4124549ca0ee8f164bb5add30b1b' }
+    steps:
+      - name: Check out the private control repository
+        uses: actions/checkout@v4
+
+      - name: Check out the pinned LZ research revision
+        uses: actions/checkout@v4
+        with:
+          repository: lm846802297-bit/LZ-3-body-for-hdm
+          ref: ${ github.event.inputs.source_sha || 'f29209247b4f4124549ca0ee8f164bb5add30b1b' }
+          token: ${ secrets.LZ_RESEARCH_READ_TOKEN }
+          path: research
+          persist-credentials: false
+
+      - name: Verify pinned source and native inputs
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = (git -C "$env:GITHUB_WORKSPACE\research" rev-parse HEAD).Trim()
+          if ($actual -ne $env:SOURCE_SHA) {
+            throw "Research source SHA mismatch: expected $env:SOURCE_SHA, got $actual"
+          }
+          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_default_density_xe131'
+          $required = @(
+            'run_afh_spatial_response_audit.wls',
+            'run_afh_spatial_response_audit.py',
+            'compare_afh_spatial_response.py',
+            '..\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe129_density_matrix.csv',
+            '..\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe131_density_matrix.csv'
+          )
+          foreach ($relative in $required) {
+            $candidate = Join-Path $study $relative
+            if (-not (Test-Path $candidate -PathType Leaf)) {
+              throw "Required pinned research input is missing: $candidate"
+            }
+          }
+          Write-Host "Verified pinned research source $actual"
+
+      - name: Verify Wolfram and prepare isolated Python environment
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $wolfram = Get-Command wolframscript -ErrorAction Stop
+          $wolframVersion = & $wolfram.Source -version 2>&1
+          if ($LASTEXITCODE -ne 0) { throw 'wolframscript -version failed.' }
+          $python = Get-Command python -ErrorAction Stop
+          $venv = Join-Path $env:RUNNER_TEMP 'afh-spatial-python-venv'
+          & $python.Source -m venv $venv
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create isolated Python environment.' }
+          $pythonExe = Join-Path $venv 'Scripts\python.exe'
+          & $pythonExe -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { throw 'pip upgrade failed.' }
+          & $pythonExe -m pip install numpy scipy sympy
+          if ($LASTEXITCODE -ne 0) { throw 'Numerical dependencies could not be installed.' }
+          $out = Join-Path $env:RUNNER_TEMP 'afh-spatial-native'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          @($wolframVersion) | Set-Content -Path (Join-Path $out 'wolfram-version.txt') -Encoding UTF8
+          & $pythonExe --version 2>&1 | Set-Content -Path (Join-Path $out 'python-version.txt') -Encoding UTF8
+
+      - name: Run native AFH Wolfram export for indices 1, 3, 6, and 8
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'afh-spatial-native'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_default_density_xe131'
+          $venv = Join-Path $env:RUNNER_TEMP 'afh-spatial-python-venv'
+          $pythonExe = Join-Path $venv 'Scripts\python.exe'
+          $transcript = Join-Path $out 'native-wolfram-transcript.txt'
+          $env:DMFormFactorPath = Join-Path $env:GITHUB_WORKSPACE 'research\v6\dmformfactor-V6.m'
+          Start-Transcript -Path $transcript -Force
+          try {
+            & wolframscript -file (Join-Path $study 'run_afh_spatial_response_audit.wls')
+            if ($LASTEXITCODE -ne 0) { throw "Native AFH Wolfram exporter exited with code $LASTEXITCODE." }
+
+            $nativeDir = Join-Path $study 'output\spatial_native'
+            foreach ($isotope in @(129,131)) {
+              $nativeCsv = Join-Path $nativeDir ("afh_xe{0}_spatial_native.csv" -f $isotope)
+              if (-not (Test-Path $nativeCsv -PathType Leaf)) { throw "Missing native output: $nativeCsv" }
+            }
+
+            $pythonCsv = Join-Path $out 'afh_spatial_response_selected_q.csv'
+            $pythonScript = Join-Path $study 'run_afh_spatial_response_audit.py'
+            & $pythonExe $pythonScript --outdir $out --q 0 0.05 0.10 0.158 0.20 0.25625 0.30 0.365 0.45 0.49925 0.60
+            if ($LASTEXITCODE -ne 0) { throw 'Python spatial-response translation failed.' }
+
+            $nativeCopy = Join-Path $out 'native'
+            New-Item -ItemType Directory -Force -Path $nativeCopy | Out-Null
+            Copy-Item (Join-Path $nativeDir 'afh_xe129_spatial_native.csv') $nativeCopy
+            Copy-Item (Join-Path $nativeDir 'afh_xe131_spatial_native.csv') $nativeCopy
+            Copy-Item (Join-Path $nativeDir 'metadata.txt') $nativeCopy
+
+            $comparisonDir = Join-Path $out 'comparison'
+            $comparator = Join-Path $study 'compare_afh_spatial_response.py'
+            & $pythonExe $comparator --python-csv $pythonCsv --native-dir $nativeCopy --outdir $comparisonDir --rtol 5e-7 --atol 2e-12
+            if ($LASTEXITCODE -ne 0) { throw 'Pointwise Python/native AFH spatial-response comparison failed.' }
+
+            $comparison = Get-Content -Raw (Join-Path $comparisonDir 'afh_spatial_python_native_comparison.json') | ConvertFrom-Json
+            if ($comparison.status -ne 'PASS' -or $comparison.rows -ne 22) {
+              throw "Expected PASS for 22 pointwise rows; status=$($comparison.status), rows=$($comparison.rows)."
+            }
+
+            $manifest = [ordered]@{
+              status = 'PASS'
+              repository = 'lm846802297-bit/LZ-3-body-for-hdm'
+              source_commit = $env:SOURCE_SHA
+              control_run_id = $env:GITHUB_RUN_ID
+              control_run_attempt = $env:GITHUB_RUN_ATTEMPT
+              native_package = 'AFH DMFormFactor v6.0'
+              wolfram_version = (Get-Content -Raw (Join-Path $out 'wolfram-version.txt')).Trim()
+              python_version = (Get-Content -Raw (Join-Path $out 'python-version.txt')).Trim()
+              isotopes = @(129,131)
+              response_indices = [ordered]@{ M=1; SigmaPrime=3; Delta=6; SigmaPrimeDelta=8 }
+              q_GeV = @(0,0.05,0.10,0.158,0.20,0.25625,0.30,0.365,0.45,0.49925,0.60)
+              convention = 'raw AFH isoscalar tau1=tau2=0; no physical factor-four rescaling'
+              comparison = $comparison
+              scope = 'nuclear response pointwise comparison only; no finite-t nucleon form factors and no full three-body L_mu_nu W_A^mu_nu contraction'
+            }
+            $manifest | ConvertTo-Json -Depth 12 | Set-Content -Path (Join-Path $out 'run_manifest.json') -Encoding UTF8
+          }
+          finally {
+            Stop-Transcript
+          }
+
+      - name: Hash native and comparison outputs
+        if: always()
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'afh-spatial-native'
+          if (Test-Path $out) {
+            $hashes = Get-ChildItem $out -File -Recurse |
+              Where-Object { $_.Name -ne 'SHA256SUMS.txt' } |
+              Sort-Object FullName |
+              ForEach-Object {
+                $relative = $_.FullName.Substring($out.Length + 1)
+                $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+                "$hash  $relative"
+              }
+            $hashes | Set-Content -Path (Join-Path $out 'SHA256SUMS.txt') -Encoding ASCII
+          }
+
+      - name: Upload native AFH spatial-response archive
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xe129-xe131-native-afh-spatial-${ github.run_id }
+          path: ${ runner.temp }}/afh-spatial-native/
+          if-no-files-found: warn
+          retention-days: 90
