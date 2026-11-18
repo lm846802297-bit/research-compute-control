@@ -1,6 +1,9 @@
 name: Seven-isotope native AFH v6.0 eight-response cross-check
 
 on:
+  push:
+    paths:
+      - ".github/workflows/xe131-afh-spatial-native.yml"
   workflow_dispatch:
     inputs:
       source_sha:
