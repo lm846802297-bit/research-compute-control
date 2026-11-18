@@ -7,7 +7,7 @@ on:
         description: "Exact reviewed LZ-3-body-for-hdm commit SHA"
         required: true
         type: string
-        default: "e1e9c85530a7d609561b34e2c2df5ab36e5c5b89"
+        default: "aa493b2b76727da2fd51609fe87c647910f7e456"
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ jobs:
     runs-on: [self-hosted, Windows, X64, research-gpu]
     timeout-minutes: 180
     env:
-      SOURCE_SHA: ${{ github.event.inputs.source_sha || 'e1e9c85530a7d609561b34e2c2df5ab36e5c5b89' }}
+      SOURCE_SHA: ${{ github.event.inputs.source_sha || 'aa493b2b76727da2fd51609fe87c647910f7e456' }}
     steps:
       - name: Check out the private control repository
         uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: lm846802297-bit/LZ-3-body-for-hdm
-          ref: ${{ github.event.inputs.source_sha || 'e1e9c85530a7d609561b34e2c2df5ab36e5c5b89' }}
+          ref: ${{ github.event.inputs.source_sha || 'aa493b2b76727da2fd51609fe87c647910f7e456' }}
           token: ${{ secrets.LZ_RESEARCH_READ_TOKEN }}
           path: research
           persist-credentials: false
@@ -136,6 +136,9 @@ jobs:
           $nativeMeta = Get-Content -Raw $nativeMetadata
           if ($nativeMeta -notmatch 'AFH_source_sha256=dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372') {
             throw 'Native multipole AFH source SHA-256 does not match the reviewed v6.0 source.'
+          }
+          if ($nativeMeta -notmatch 'rank_map=129=1;131=1,2,3') {
+            throw 'Native Xe-129/Xe-131 rank map does not match the expected OBDME multipoles.'
           }
           $imagLine = ($nativeMeta -split "`n" | Where-Object { $_ -like 'max_imaginary_residual=*' } | Select-Object -First 1)
           $imagResidual = [double]($imagLine -replace '^max_imaginary_residual=', '')
