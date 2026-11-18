@@ -12,12 +12,12 @@ on:
         description: "LZ-3-body-for-hdm workflow run containing the P3-B spatial artifact"
         required: true
         type: string
-        default: "44317358790"
+        default: "44337928314"
       p3_artifact_id:
         description: "P3-B seven-isotope spatial-response artifact ID"
         required: true
         type: string
-        default: "14431903885"
+        default: "14443055701"
 
 permissions:
   contents: read
@@ -329,10 +329,10 @@ jobs:
       - name: Download the P3-B spatial response and rank-resolved multipole artifact
         uses: actions/download-artifact@v4
         with:
-          artifact-ids: ${{ github.event.inputs.p3_artifact_id || '14431903885' }}
+          artifact-ids: ${{ github.event.inputs.p3_artifact_id || '14443055701' }}
           github-token: ${{ secrets.LZ_RESEARCH_READ_TOKEN }}
           repository: lm846802297-bit/LZ-3-body-for-hdm
-          run-id: ${{ github.event.inputs.p3_run_id || '44317358790' }}
+          run-id: ${{ github.event.inputs.p3_run_id || '44337928314' }}
           path: ${{ runner.temp }}/afh-eight-response/p3-spatial
 
       - name: Compile and test native P3 multipole comparator
@@ -378,8 +378,8 @@ jobs:
             $manifest | Add-Member -NotePropertyName p3_spatial_multipole_crosscheck -NotePropertyValue $p3Comparison -Force
             $manifest | Add-Member -NotePropertyName p3_artifact_provenance -NotePropertyValue ([ordered]@{
               repository = 'lm846802297-bit/LZ-3-body-for-hdm'
-              run_id = '${{ github.event.inputs.p3_run_id || '44317358790' }}'
-              artifact_id = '${{ github.event.inputs.p3_artifact_id || '14431903885' }}'
+              run_id = '${{ github.event.inputs.p3_run_id || '44337928314' }}'
+              artifact_id = '${{ github.event.inputs.p3_artifact_id || '14443055701' }}'
             }) -Force
             $manifest | ConvertTo-Json -Depth 32 | Set-Content -Path $manifestPath -Encoding UTF8
           }
