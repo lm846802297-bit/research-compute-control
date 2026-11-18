@@ -35,20 +35,20 @@ Wolfram exporter for all seven available xenon default-density isotopes:
 Xe-128, Xe-129, Xe-130, Xe-131, Xe-132, Xe-134, and Xe-136.
 
 The calculation exports AFH `ResponseNuclear[y,index,0,0]` for indices 1--8
-on the common 2,401-point grid (q_A=0)--(0.6) GeV. The eight channels are
-(M,Sigma'',Sigma',Phi'',\widetilde{\Phi}',\Delta,M\Phi''), and
-(Sigma'\Delta). It preserves the raw isoscalar package convention and
-exports imaginary residuals separately. The same pinned source is used to
-generate the Python database; the workflow then compares all 16,807 isotope/q
-rows and all eight responses point by point. Acceptance requires
-(5\times10^{-7}) relative tolerance, (2\times10^{-12}) absolute
-tolerance, and negligible native imaginary parts.
+on the common 2,401-point grid from 0 to 0.6 GeV. The eight channels are
+M, Sigma-double-prime, Sigma-prime, Phi-double-prime, Phi-tilde-prime,
+Delta, M--Phi-double-prime interference, and Sigma-prime--Delta interference.
+It preserves the raw isoscalar package convention and exports imaginary
+residuals separately. The same pinned source is used to generate the Python
+database; the workflow then compares all 16,807 isotope/q rows and all eight
+responses point by point. Acceptance requires relative tolerance 5e-7,
+absolute tolerance 2e-12, and negligible native imaginary parts.
 
 The workflow also checks the raw-to-physical conversion
-(R_X^{\rm raw}=4\pi W_X/(2J_A+1)) and applies the equal-p/n factor four
-only in the physical output columns. It does not compute finite-(t) nucleon
-form factors, the three-body (L_{\mu\nu}^{(3)}W_A^{\mu\nu}) contraction,
-halo folding, or detector predictions.
+`R_X_raw = 4*pi*W_X/(2*J_A+1)` and applies the equal-p/n factor four only
+in the physical output columns. It does not compute finite-t nucleon form
+factors, the three-body `L_munu^(3) W_A^(munu)` contraction, halo folding,
+or detector predictions.
 
 Before running, confirm that the Windows runner is Online/Idle, that
 `wolframscript -version` works under its runner account, and that the
