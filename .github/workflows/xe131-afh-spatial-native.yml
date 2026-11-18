@@ -7,17 +7,17 @@ on:
         description: "Exact reviewed LZ-3-body-for-hdm commit SHA"
         required: true
         type: string
-        default: "50100babe7353392cac6e1047b48b933ef5063b1"
+        default: "e8d5982ee77428dba274d964ba6181ec47f3afc1"
       p3_run_id:
         description: "LZ-3-body-for-hdm workflow run containing the P3-B spatial artifact"
         required: true
         type: string
-        default: "44305980766"
+        default: "44317358790"
       p3_artifact_id:
         description: "P3-B seven-isotope spatial-response artifact ID"
         required: true
         type: string
-        default: "14428386181"
+        default: "14431903885"
 
 permissions:
   contents: read
@@ -31,7 +31,7 @@ jobs:
     runs-on: [self-hosted, Windows, X64, research-gpu]
     timeout-minutes: 180
     env:
-      SOURCE_SHA: ${{ github.event.inputs.source_sha || '50100babe7353392cac6e1047b48b933ef5063b1' }}
+      SOURCE_SHA: ${{ github.event.inputs.source_sha || 'e8d5982ee77428dba274d964ba6181ec47f3afc1' }}
     steps:
       - name: Check out the private control repository
         uses: actions/checkout@v4
@@ -59,6 +59,9 @@ jobs:
             'validate_afh_full_response_database.py',
             'compare_native_afh_full_response.py',
             'run_afh_full_response_database.wls',
+            'run_xe131_dense_charge_dip_native.wls',
+            'validate_xe131_dense_charge_dip.py',
+            'tests\\test_validate_xe131_dense_charge_dip.py',
             'run_afh_spatial_multipoles_native.wls',
             'compare_p3_spatial_multipoles_native.py',
             'tests\test_compare_p3_spatial_multipoles_native.py',
@@ -126,6 +129,43 @@ jobs:
           finally {
             Stop-Transcript
           }
+
+
+      - name: Export dense native Xe-131 charge responses around the W_M diffraction minimum
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'research\\research\\afh_full_response_database'
+          $denseDir = Join-Path $out 'native-dense-charge-dip'
+          New-Item -ItemType Directory -Force -Path $denseDir | Out-Null
+          $env:DMFormFactorPath = Join-Path $env:GITHUB_WORKSPACE 'research\\v6\\dmformfactor-V6.m'
+          $env:AFH_SOURCE_COMMIT = $env:SOURCE_SHA
+          $env:AFH_XE131_DENSE_CHARGE_OUTDIR = $denseDir
+          & wolframscript -file (Join-Path $study 'run_xe131_dense_charge_dip_native.wls')
+          if ($LASTEXITCODE -ne 0) { throw 'Dense native Xe-131 charge-response export failed.' }
+          $denseCsv = Join-Path $denseDir 'xe131_dense_charge_response_dip_native.csv'
+          $denseMeta = Join-Path $denseDir 'xe131_dense_charge_response_dip_metadata.txt'
+          if (-not (Test-Path $denseCsv -PathType Leaf)) { throw 'Dense Xe-131 charge CSV is missing.' }
+          if (-not (Test-Path $denseMeta -PathType Leaf)) { throw 'Dense Xe-131 charge metadata is missing.' }
+          $denseRows = @(Import-Csv $denseCsv)
+          if ($denseRows.Count -ne 121) { throw "Expected 121 dense q rows, got $($denseRows.Count)." }
+
+      - name: Validate dense native Xe-131 charge grid against coarse native overlap
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'research\\research\\afh_full_response_database'
+          $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
+          $pythonExe = Join-Path $venv 'Scripts\\python.exe'
+          $denseDir = Join-Path $out 'native-dense-charge-dip'
+          & $pythonExe -m py_compile (Join-Path $study 'validate_xe131_dense_charge_dip.py') (Join-Path $study 'tests\\test_validate_xe131_dense_charge_dip.py')
+          if ($LASTEXITCODE -ne 0) { throw 'Dense Xe-131 charge validator compilation failed.' }
+          & $pythonExe -m unittest discover -s (Join-Path $study 'tests') -p 'test_validate_xe131_dense_charge_dip.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'Dense Xe-131 charge validator unit tests failed.' }
+          & $pythonExe (Join-Path $study 'validate_xe131_dense_charge_dip.py') --dense-csv (Join-Path $denseDir 'xe131_dense_charge_response_dip_native.csv') --dense-metadata (Join-Path $denseDir 'xe131_dense_charge_response_dip_metadata.txt') --coarse-csv (Join-Path $out 'native\\afh_v6_xe131_eight_response_native.csv') --out-json (Join-Path $denseDir 'validation.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Dense Xe-131 native/coarse overlap validation failed.' }
 
       - name: Run native AFH Delta and SigmaPrime rank-resolved multipoles
         shell: powershell
@@ -207,6 +247,26 @@ jobs:
             if (Test-Path (Join-Path $out 'python-version.txt')) {
               $pythonVersionValue = (Get-Content -Raw (Join-Path $out 'python-version.txt')).Trim()
             }
+            $denseDir = Join-Path $out 'native-dense-charge-dip'
+            $denseCsv = Join-Path $denseDir 'xe131_dense_charge_response_dip_native.csv'
+            $denseMeta = Join-Path $denseDir 'xe131_dense_charge_response_dip_metadata.txt'
+            $denseValidationPath = Join-Path $denseDir 'validation.json'
+            $denseCsvHash = $null
+            $denseMetaHash = $null
+            $denseValidationHash = $null
+            $denseRows = $null
+            $denseValidation = $null
+            if (Test-Path $denseCsv) {
+              $denseCsvHash = (Get-FileHash $denseCsv -Algorithm SHA256).Hash.ToLower()
+              $denseRows = @(Import-Csv $denseCsv).Count
+            }
+            if (Test-Path $denseMeta) {
+              $denseMetaHash = (Get-FileHash $denseMeta -Algorithm SHA256).Hash.ToLower()
+            }
+            if (Test-Path $denseValidationPath) {
+              $denseValidationHash = (Get-FileHash $denseValidationPath -Algorithm SHA256).Hash.ToLower()
+              $denseValidation = Get-Content -Raw $denseValidationPath | ConvertFrom-Json
+            }
             $spatialDir = Join-Path $out 'native-spatial-multipoles'
             $spatialCsv = Join-Path $spatialDir 'afh_v6_xe129_xe131_spatial_multipoles_native.csv'
             $spatialMeta = Join-Path $spatialDir 'native_spatial_multipole_metadata.txt'
@@ -240,6 +300,18 @@ jobs:
               q_grid = [ordered]@{ points=2401; q_min_GeV=0.0; q_max_GeV=0.6; step_GeV=0.00025 }
               convention = 'raw AFH isoscalar tau1=tau2=0; physical equal-p/n factor four applied only to converted columns'
               comparison = $comparison
+              native_xe131_dense_charge_dip = [ordered]@{
+                csv_sha256 = $denseCsvHash
+                metadata_sha256 = $denseMetaHash
+                validation_sha256 = $denseValidationHash
+                rows = $denseRows
+                validation_status = if ($denseValidation) { $denseValidation.status } else { $null }
+                q_min_GeV = 0.2545
+                q_max_GeV = 0.2575
+                q_step_GeV = 0.000025
+                response_indices = [ordered]@{ M=1; PhiPP=4; MPhiPP=7 }
+                common_coarse_nodes_compared = if ($denseValidation) { $denseValidation.common_nodes_compared } else { $null }
+              }
               native_spatial_multipoles = [ordered]@{
                 csv_sha256 = $spatialCsvHash
                 metadata_sha256 = $spatialMetaHash
@@ -257,10 +329,10 @@ jobs:
       - name: Download the P3-B spatial response and rank-resolved multipole artifact
         uses: actions/download-artifact@v4
         with:
-          artifact-ids: ${{ github.event.inputs.p3_artifact_id || '14428386181' }}
+          artifact-ids: ${{ github.event.inputs.p3_artifact_id || '14431903885' }}
           github-token: ${{ secrets.LZ_RESEARCH_READ_TOKEN }}
           repository: lm846802297-bit/LZ-3-body-for-hdm
-          run-id: ${{ github.event.inputs.p3_run_id || '44305980766' }}
+          run-id: ${{ github.event.inputs.p3_run_id || '44317358790' }}
           path: ${{ runner.temp }}/afh-eight-response/p3-spatial
 
       - name: Compile and test native P3 multipole comparator
