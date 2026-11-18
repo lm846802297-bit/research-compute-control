@@ -134,6 +134,15 @@ jobs:
           $nativeMetadata = Join-Path $spatialOut 'native_spatial_multipole_metadata.txt'
           if (-not (Test-Path $nativeCsv -PathType Leaf)) { throw 'Native spatial multipole CSV is missing.' }
           if (-not (Test-Path $nativeMetadata -PathType Leaf)) { throw 'Native spatial multipole metadata is missing.' }
+          $nativeRows = @(Import-Csv $nativeCsv)
+          if ($nativeRows.Count -ne 9604) { throw "Expected 9,604 native multipole rows, got $($nativeRows.Count)." }
+          $nativeMeta = Get-Content -Raw $nativeMetadata
+          if ($nativeMeta -notmatch 'AFH_source_sha256=dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372') {
+            throw 'Native multipole AFH source SHA-256 does not match the reviewed v6.0 source.'
+          }
+          $imagLine = ($nativeMeta -split "`n" | Where-Object { $_ -like 'max_imaginary_residual=*' } | Select-Object -First 1)
+          $imagResidual = [double]($imagLine -replace '^max_imaginary_residual=', '')
+          if ($imagResidual -gt 2e-12) { throw "Native multipole imaginary residual too large: $imagResidual" }
 
       - name: Run full seven-isotope Python database and internal validator
         shell: powershell
@@ -186,6 +195,26 @@ jobs:
             if (Test-Path (Join-Path $out 'python-version.txt')) {
               $pythonVersionValue = (Get-Content -Raw (Join-Path $out 'python-version.txt')).Trim()
             }
+            $spatialDir = Join-Path $out 'native-spatial-multipoles'
+            $spatialCsv = Join-Path $spatialDir 'afh_v6_xe129_xe131_spatial_multipoles_native.csv'
+            $spatialMeta = Join-Path $spatialDir 'native_spatial_multipole_metadata.txt'
+            $spatialCsvHash = $null
+            $spatialMetaHash = $null
+            $spatialRows = $null
+            $spatialImaginaryResidual = $null
+            $spatialRankMap = $null
+            if (Test-Path $spatialCsv) {
+              $spatialCsvHash = (Get-FileHash $spatialCsv -Algorithm SHA256).Hash.ToLower()
+              $spatialRows = @(Import-Csv $spatialCsv).Count
+            }
+            if (Test-Path $spatialMeta) {
+              $spatialMetaHash = (Get-FileHash $spatialMeta -Algorithm SHA256).Hash.ToLower()
+              $spatialText = Get-Content -Raw $spatialMeta
+              $imagLine = ($spatialText -split "`n" | Where-Object { $_ -like 'max_imaginary_residual=*' } | Select-Object -First 1)
+              if ($imagLine) { $spatialImaginaryResidual = [double]($imagLine -replace '^max_imaginary_residual=', '') }
+              $rankLine = ($spatialText -split "`n" | Where-Object { $_ -like 'rank_map=*' } | Select-Object -First 1)
+              if ($rankLine) { $spatialRankMap = $rankLine -replace '^rank_map=', '' }
+            }
             $manifest = [ordered]@{
               repository = 'lm846802297-bit/LZ-3-body-for-hdm'
               source_commit = $env:SOURCE_SHA
@@ -199,7 +228,16 @@ jobs:
               q_grid = [ordered]@{ points=2401; q_min_GeV=0.0; q_max_GeV=0.6; step_GeV=0.00025 }
               convention = 'raw AFH isoscalar tau1=tau2=0; physical equal-p/n factor four applied only to converted columns'
               comparison = $comparison
-              scope = 'nuclear response pointwise comparison only; no finite-t nucleon form factors and no three-body L_mu_nu W_A_mu_nu contraction'
+              native_spatial_multipoles = [ordered]@{
+                csv_sha256 = $spatialCsvHash
+                metadata_sha256 = $spatialMetaHash
+                rows = $spatialRows
+                max_imaginary_residual = $spatialImaginaryResidual
+                rank_map = $spatialRankMap
+                isotope_set = @(129,131)
+                channels = @('DeltaJ','SigmaPJ')
+              }
+              scope = 'native AFH total-response and rank-resolved spatial-multipole pointwise export; no finite-t nucleon form factors and no three-body L_mu_nu W_A_mu_nu contraction'
             }
             $manifest | ConvertTo-Json -Depth 16 | Set-Content -Path (Join-Path $out 'run_manifest.json') -Encoding UTF8
           }
