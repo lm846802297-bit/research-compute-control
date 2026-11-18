@@ -136,10 +136,10 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
           $denseDir = Join-Path $out 'native-dense-charge-dip'
           New-Item -ItemType Directory -Force -Path $denseDir | Out-Null
-          $env:DMFormFactorPath = Join-Path $env:GITHUB_WORKSPACE 'research\v6\\dmformfactor-V6.m'
+          $env:DMFormFactorPath = Join-Path $env:GITHUB_WORKSPACE 'research\v6\dmformfactor-V6.m'
           $env:AFH_SOURCE_COMMIT = $env:SOURCE_SHA
           $env:AFH_XE131_DENSE_CHARGE_OUTDIR = $denseDir
           & wolframscript -file (Join-Path $study 'run_xe131_dense_charge_dip_native.wls')
@@ -156,7 +156,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
           $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
           $pythonExe = Join-Path $venv 'Scripts\python.exe'
           $denseDir = Join-Path $out 'native-dense-charge-dip'
