@@ -60,15 +60,21 @@ The current native run is 44222502400, attempt 2, and remains queued.
 It pins the LZ research checkout to
 `dcefbeb7ad705b6c03f2b4689200eb1d9252e67b`.
 
-**Do not conflate this native run with the separate provisional Python
-artifact used by the PR #58 fixed-speed diagnostic.** That artifact is from
-LZ workflow run 44222087512 and records source commit
-`7cb5867fd40ce59194ba9a03252196f1fb38ccdd`, not the native run's
-`dcefbeb...` source commit. The two commits are different. We checked the
-calculation-critical Git blobs at both commits and confirmed they are
-identical:
+**The provisional Python artifact consumed by PR #58 and the native
+workflow are in fact source-aligned.** The PR #58 artifact is from LZ
+workflow run 44222087512, artifact 14391456283. The Actions API reports
+`head_sha=7cb5867fd40ce59194ba9a03252196f1fb38ccdd`, which is the PR branch
+head. However, this was a `pull_request` workflow: the checked-out merge
+commit recorded inside the artifact's `source_commit.txt` is
+`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b`, exactly the source commit pinned
+by the native workflow. The artifact's `SHA256SUMS.txt` records the
+`source_commit.txt` SHA-256 as
+`020420f04915cf0a6cda7cc6581f55b99f672a1dc29d88c921f8fa8d5d759b11`.
 
-| Calculation input | Git blob SHA (same at both commits) |
+As an independent check, the calculation-critical Git blobs are identical
+between the PR head and pinned merge commit:
+
+| Calculation input | Git blob SHA |
 |---|---|
 | Seven-isotope/eight-response Python generator | `592334e17731278a397cc7a09bd4af7bfe00094b` |
 | Native Wolfram exporter | `efffa3876fc61adfc3c80ea8e5f81296623a18ad` |
@@ -77,16 +83,15 @@ identical:
 | AFH Xe-131 base implementation | `5280eb8844fcb562e783a9f74860aedd4a7f7a4e` |
 
 All seven default-density CSV inputs (Xe-128, 129, 130, 131, 132, 134,
-136) also have identical Git blob SHAs at the two commits. The native
-workflow independently regenerates its Python reference database from the
-pinned `dcefbeb...` checkout before comparing the native Wolfram outputs;
-it does not consume the separate provisional artifact. Thus the native
-comparison is self-contained and source-pinned, while the PR #58 artifact
-remains a provisional fixed-speed diagnostic.
+136) also have identical Git blob SHAs. The native workflow independently
+regenerates its Python reference database from the pinned dcefbeb checkout
+before comparing native Wolfram outputs; it does not depend on the separate
+provisional artifact. The external artifact remains explicitly
+`PROVISIONAL_PYTHON` with `native_afh_validated=false`, and is used only
+for the PR #58 provisional fixed-speed diagnostic.
 
-A queued run is not a calculation result and must not be reported as a
-native AFH PASS.
-
+A queued native run is not a calculation result and must not be reported as
+a native AFH PASS.
 ## Native Xe-131 Mathematica full-cross-section run
 
 A manually dispatched Windows self-hosted workflow is provided at
