@@ -4,7 +4,7 @@ Private control repository for trusted research jobs on a Windows self-hosted ru
 
 ## Current status
 
-The manual Windows hardware/runtime diagnostic and a manually dispatched Xe-131 native Mathematica/Python full-cross-section workflow are configured. The calculation workflow is pinned to a reviewed LZ research commit and uploads an artifact to this control repository; it has not yet been executed or scientifically validated. No automatic publishing to research repositories is configured.
+The Windows self-hosted runner is configured for native Wolfram/Mathematica research jobs. The seven-isotope AFH v6.0 eight-response workflow is now pinned to LZ-3-body-for-hdm commit 7cb5867fd40ce59194ba9a03252196f1fb38ccdd. Its latest run (44222502400) is queued for the self-hosted runner; no native output or scientific validation is available yet. The workflow uploads an artifact to this control repository and does not publish to the research repository.
 
 ## Register the Windows runner
 
@@ -24,6 +24,41 @@ The custom label is mandatory for the diagnostic. A GPU label does not install d
 - Private called workflows require explicit access settings. Cross-repository checkout of private source needs separately scoped read credentials; the control repository's `GITHUB_TOKEN` does not grant access to another private repository. Use least privilege and do not persist checkout credentials.
 - The default `GITHUB_TOKEN` does not automatically grant write access to a different research repo. Review results first; any automated cross-repository publishing requires separate narrowly scoped credentials and explicit configuration. Treat run artifacts as belonging to this control repository and subject to retention limits.
 - Never overwrite research files or treat a passing technical diagnostic as validation of a physical result.
+
+## Seven-isotope native AFH v6.0 eight-response cross-check
+
+The reviewed workflow is
+[xe131-afh-spatial-native.yml](.github/workflows/xe131-afh-spatial-native.yml).
+It checks out the exact LZ research commit
+`7cb5867fd40ce59194ba9a03252196f1fb38ccdd` and runs the AFH v6.0 native
+Wolfram exporter for all seven available xenon default-density isotopes:
+Xe-128, Xe-129, Xe-130, Xe-131, Xe-132, Xe-134, and Xe-136.
+
+The calculation exports AFH `ResponseNuclear[y,index,0,0]` for indices 1--8
+on the common 2,401-point grid (q_A=0)--(0.6) GeV. The eight channels are
+(M,Sigma'',Sigma',Phi'',\widetilde{\Phi}',\Delta,M\Phi''), and
+(Sigma'\Delta). It preserves the raw isoscalar package convention and
+exports imaginary residuals separately. The same pinned source is used to
+generate the Python database; the workflow then compares all 16,807 isotope/q
+rows and all eight responses point by point. Acceptance requires
+(5\times10^{-7}) relative tolerance, (2\times10^{-12}) absolute
+tolerance, and negligible native imaginary parts.
+
+The workflow also checks the raw-to-physical conversion
+(R_X^{\rm raw}=4\pi W_X/(2J_A+1)) and applies the equal-p/n factor four
+only in the physical output columns. It does not compute finite-(t) nucleon
+form factors, the three-body (L_{\mu\nu}^{(3)}W_A^{\mu\nu}) contraction,
+halo folding, or detector predictions.
+
+Before running, confirm that the Windows runner is Online/Idle, that
+`wolframscript -version` works under its runner account, and that the
+`LZ_RESEARCH_READ_TOKEN` repository secret has Contents: Read-only access
+to `lm846802297-bit/LZ-3-body-for-hdm`. The workflow does not write back to
+the research repository.
+
+Latest run: [44222502400](https://github.com/lm846802297-bit/research-compute-control/actions/runs/44222502400).
+It is currently queued; a queued run is not a calculation result and must not
+be reported as a native AFH pass.
 
 ## Native Xe-131 Mathematica full-cross-section run
 
