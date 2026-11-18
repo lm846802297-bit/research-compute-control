@@ -4,7 +4,7 @@ Private control repository for trusted research jobs on a Windows self-hosted ru
 
 ## Current status
 
-The Windows self-hosted runner is configured for native Wolfram/Mathematica research jobs. The seven-isotope AFH v6.0 eight-response workflow is now pinned to LZ-3-body-for-hdm commit 7cb5867fd40ce59194ba9a03252196f1fb38ccdd. Its latest run (44222502400) is queued for the self-hosted runner; no native output or scientific validation is available yet. The workflow uploads an artifact to this control repository and does not publish to the research repository.
+The Windows self-hosted runner is configured for native Wolfram/Mathematica research jobs. The seven-isotope AFH v6.0 eight-response workflow is now pinned to LZ-3-body-for-hdm commit dcefbeb7ad705b6c03f2b4689200eb1d9252e67b. Its latest run (44222502400) is queued for the self-hosted runner; no native output or scientific validation is available yet. The workflow uploads an artifact to this control repository and does not publish to the research repository.
 
 ## Register the Windows runner
 
@@ -30,7 +30,7 @@ The custom label is mandatory for the diagnostic. A GPU label does not install d
 The reviewed workflow is
 [xe131-afh-spatial-native.yml](.github/workflows/xe131-afh-spatial-native.yml).
 It checks out the exact LZ research commit
-`7cb5867fd40ce59194ba9a03252196f1fb38ccdd` and runs the AFH v6.0 native
+`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b` and runs the AFH v6.0 native
 Wolfram exporter for all seven available xenon default-density isotopes:
 Xe-128, Xe-129, Xe-130, Xe-131, Xe-132, Xe-134, and Xe-136.
 
@@ -56,9 +56,12 @@ Before running, confirm that the Windows runner is Online/Idle, that
 to `lm846802297-bit/LZ-3-body-for-hdm`. The workflow does not write back to
 the research repository.
 
-Latest run: [44222502400](https://github.com/lm846802297-bit/research-compute-control/actions/runs/44222502400).
-It is currently queued; a queued run is not a calculation result and must not
-be reported as a native AFH pass.
+Previous run 44222502400 was queued with an earlier source pin and is superseded.
+The current workflow now pins the exact AFH Python database source commit
+`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b`, matching the source commit
+recorded in the seven-isotope provisional AFH artifact. The new native run is
+queued after this workflow update; a queued run is not a calculation result
+and must not be reported as a native AFH pass.
 
 ## Native Xe-131 Mathematica full-cross-section run
 
