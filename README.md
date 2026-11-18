@@ -56,12 +56,36 @@ Before running, confirm that the Windows runner is Online/Idle, that
 to `lm846802297-bit/LZ-3-body-for-hdm`. The workflow does not write back to
 the research repository.
 
-Previous run 44222502400 was queued with an earlier source pin and is superseded.
-The current workflow now pins the exact AFH Python database source commit
-`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b`, matching the source commit
-recorded in the seven-isotope provisional AFH artifact. The new native run is
-queued after this workflow update; a queued run is not a calculation result
-and must not be reported as a native AFH pass.
+The current native run is 44222502400, attempt 2, and remains queued.
+It pins the LZ research checkout to
+`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b`.
+
+**Do not conflate this native run with the separate provisional Python
+artifact used by the PR #58 fixed-speed diagnostic.** That artifact is from
+LZ workflow run 44222087512 and records source commit
+`7cb5867fd40ce59194ba9a03252196f1fb38ccdd`, not the native run's
+`dcefbeb...` source commit. The two commits are different. We checked the
+calculation-critical Git blobs at both commits and confirmed they are
+identical:
+
+| Calculation input | Git blob SHA (same at both commits) |
+|---|---|
+| Seven-isotope/eight-response Python generator | `592334e17731278a397cc7a09bd4af7bfe00094b` |
+| Native Wolfram exporter | `efffa3876fc61adfc3c80ea8e5f81296623a18ad` |
+| Native comparison script | `9b858cafff6d33dcce95637d914e2b77ab17d2d6` |
+| AFH v6.0 package source | `91b43b1a4596bebd6073ecd44c0c9464e5dd0c63` |
+| AFH Xe-131 base implementation | `5280eb8844fcb562e783a9f74860aedd4a7f7a4e` |
+
+All seven default-density CSV inputs (Xe-128, 129, 130, 131, 132, 134,
+136) also have identical Git blob SHAs at the two commits. The native
+workflow independently regenerates its Python reference database from the
+pinned `dcefbeb...` checkout before comparing the native Wolfram outputs;
+it does not consume the separate provisional artifact. Thus the native
+comparison is self-contained and source-pinned, while the PR #58 artifact
+remains a provisional fixed-speed diagnostic.
+
+A queued run is not a calculation result and must not be reported as a
+native AFH PASS.
 
 ## Native Xe-131 Mathematica full-cross-section run
 
