@@ -4,7 +4,7 @@ Private control repository for trusted research jobs on a Windows self-hosted ru
 
 ## Current status
 
-The Windows self-hosted runner is configured for native Wolfram/Mathematica research jobs. The seven-isotope AFH v6.0 eight-response workflow is now pinned to LZ-3-body-for-hdm commit dcefbeb7ad705b6c03f2b4689200eb1d9252e67b. Its latest run (44222502400) is queued for the self-hosted runner; no native output or scientific validation is available yet. The workflow uploads an artifact to this control repository and does not publish to the research repository.
+The native AFH workflow has been updated in PR #2 and is pinned to LZ-3-body-for-hdm commit 5afc500a3102b857dd16e29432db8e6e068d65d1. Its current run (44346207069) is QUEUED with no assigned self-hosted runner; no native output or scientific validation is available yet. Bring the Windows/X64/research-gpu runner Online/Idle before expecting the job to start. The workflow uploads an artifact to this control repository and does not publish to the research repository.
 
 ## Register the Windows runner
 
@@ -30,7 +30,7 @@ The custom label is mandatory for the diagnostic. A GPU label does not install d
 The reviewed workflow is
 [xe131-afh-spatial-native.yml](.github/workflows/xe131-afh-spatial-native.yml).
 It checks out the exact LZ research commit
-`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b` and runs the AFH v6.0 native
+`5afc500a3102b857dd16e29432db8e6e068d65d1` and runs the AFH v6.0 native
 Wolfram exporter for all seven available xenon default-density isotopes:
 Xe-128, Xe-129, Xe-130, Xe-131, Xe-132, Xe-134, and Xe-136.
 
@@ -56,9 +56,9 @@ Before running, confirm that the Windows runner is Online/Idle, that
 to `lm846802297-bit/LZ-3-body-for-hdm`. The workflow does not write back to
 the research repository.
 
-The current native run is 44222502400, attempt 2, and remains queued.
+The current native run is 44346207069, triggered from PR #2, and remains queued because no self-hosted runner is assigned.
 It pins the LZ research checkout to
-`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b`.
+`5afc500a3102b857dd16e29432db8e6e068d65d1` and consumes the P3-B spatial artifact from LZ run 44337928314, artifact 14443055701.
 
 **The provisional Python artifact consumed by PR #58 and the native
 workflow are in fact source-aligned.** The PR #58 artifact is from LZ
