@@ -2,7 +2,7 @@
 
 Private control repository for trusted research jobs on a Windows self-hosted runner.
 
-> **Research compute architecture:** [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md) in each linked research repository is normative: the current ChatGPT Linux environment performs primary calculations, GitHub stores canonical source/results, and Actions is used for independent verification. This repository's Windows runner is an explicitly authorized secondary cross-check platform, not the default primary compute environment.
+> **Research compute architecture:** [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md) in each linked research repository is normative: ordinary GPT chat uses ChatGPT Linux for primary calculations; Codex and ChatGPT Work use the user's Windows local environment; GitHub stores canonical source/results; Actions is used for independent verification. This repository's Windows self-hosted Actions runner remains a separate, explicitly authorized cross-check path, even when it runs on the same physical PC used by Codex/Work.
 
 ## Current status
 
