@@ -95,8 +95,10 @@ jobs:
           }
           $p3Required = @(
             (Join-Path $p3Study 'run_xe131_dense_charge_dip_native.wls'),
+            (Join-Path $p3Root 'research\afh_default_density_xe131\run_afh_default_xe131.py'),
             (Join-Path $p3Study 'validate_xe131_dense_charge_dip.py'),
             (Join-Path $p3Study 'tests\test_validate_xe131_dense_charge_dip.py'),
+            (Join-Path $p3Root 'research\afh_default_density_xe131\run_afh_default_xe131.py'),
             (Join-Path $p3Crosscheck 'compare_p3_spatial_vs_native.py'),
             (Join-Path $p3Crosscheck 'compare_p3_multipoles_vs_native.py'),
             (Join-Path $p3MatchStudy 'test_afh_native_multipole_comparator.py'),
@@ -104,6 +106,9 @@ jobs:
             (Join-Path $p3MatchStudy 'validate_afh_spatial_multipole_archive.py'),
             (Join-Path $p3Root 'v6\dmformfactor-V6.m')
           )
+          foreach ($A in @(128,129,130,131,132,134,136)) {
+            $p3Required += Join-Path $p3Root ("research\afh_default_density_natural_xenon_halo\results\full_afh_v6_default_7_isotope_response\density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
+          }
           foreach ($candidate in $nativeRequired + $p3Required) {
             if (-not (Test-Path $candidate -PathType Leaf)) {
               throw "Required pinned research input is missing: $candidate"
@@ -342,6 +347,7 @@ jobs:
               (Join-Path $nativeStudy 'run_afh_spatial_multipoles_native.wls'),
               (Join-Path $nativeStudy 'tests\test_afh_full_response_database.py'),
               (Join-Path $nativeRoot 'research\afh_default_density_xe131\run_afh_spatial_response_audit.py'),
+              (Join-Path $p3Root 'research\afh_default_density_xe131\run_afh_default_xe131.py'),
               (Join-Path $p3Study 'run_xe131_dense_charge_dip_native.wls'),
               (Join-Path $p3Study 'validate_xe131_dense_charge_dip.py'),
               (Join-Path $p3Study 'tests\test_validate_xe131_dense_charge_dip.py'),
@@ -363,6 +369,7 @@ jobs:
             $matrixFiles = @()
             foreach ($A in @(128,129,130,131,132,134,136)) {
               $matrixFiles += Join-Path $nativeRoot ("research\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
+              $matrixFiles += Join-Path $p3Root ("research\afh_default_density_natural_xenon_halo\results\full_afh_v6_default_7_isotope_response\density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
             }
             $matrixFiles += Join-Path $nativeRoot 'research\afh_default_density_xe131\output\phi_response_native\afh_default_xe131_M_PhiPP_native.csv'
             $inputHashes = [ordered]@{}
@@ -470,11 +477,14 @@ jobs:
           if ($metadata.source_file_sha256 -ne 'dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372') {
             throw 'P3-B AFH source hash does not match the pinned AFH v6.0 package.'
           }
+          $p3Root = Join-Path $env:GITHUB_WORKSPACE 'p3-source'
           foreach ($entry in $metadata.isotope_metadata) {
             $A = [int]$entry.A
-            $matrixPath = Join-Path $nativeRoot ("research\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
-            $actualMatrixHash = (Get-FileHash $matrixPath -Algorithm SHA256).Hash.ToLower()
-            if ($actualMatrixHash -ne $entry.matrix_sha256) {
+            $nativeMatrixPath = Join-Path $nativeRoot ("research\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
+            $p3MatrixPath = Join-Path $p3Root ("research\afh_default_density_natural_xenon_halo\results\full_afh_v6_default_7_isotope_response\density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
+            $nativeMatrixHash = (Get-FileHash $nativeMatrixPath -Algorithm SHA256).Hash.ToLower()
+            $p3MatrixHash = (Get-FileHash $p3MatrixPath -Algorithm SHA256).Hash.ToLower()
+            if ($nativeMatrixHash -ne $entry.matrix_sha256 -or $p3MatrixHash -ne $entry.matrix_sha256) {
               throw "P3/native AFH density-matrix hash mismatch for Xe-$A."
             }
           }
