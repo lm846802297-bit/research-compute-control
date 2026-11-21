@@ -1,5 +1,8 @@
 # Repository instructions — research runner control
 
+> **Mandatory compute architecture:** Follow [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md) for all numerical and computational work. Select the primary environment by actual execution target: ordinary GPT chat uses ChatGPT Linux; Codex/Work local execution uses the user's Windows environment; Codex/Work cloud-computer execution uses the GPT-managed cloud environment. GitHub is the canonical source/result archive; GitHub Actions is reserved for independent verification and CI, not the primary calculation engine.
+
+
 These instructions are mandatory for agents and contributors. Read [README.md](README.md) before changing workflows, runner configuration, or research artifact handoff.
 
 ## Trusted-runner security
