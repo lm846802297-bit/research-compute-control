@@ -18,6 +18,11 @@ on:
         required: true
         type: string
         default: "14709662510"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/xe131-afh-spatial-native.yml"
 
 permissions:
   contents: read
