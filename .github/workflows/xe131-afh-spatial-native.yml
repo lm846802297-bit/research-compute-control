@@ -90,6 +90,7 @@ jobs:
             (Join-Path $nativeStudy 'compare_native_afh_full_response.py'),
             (Join-Path $nativeStudy 'run_afh_full_response_database.wls'),
             (Join-Path $nativeStudy 'run_afh_spatial_multipoles_native.wls'),
+            (Join-Path $nativeStudy 'tests\test_afh_full_response_database.py'),
             (Join-Path $nativeRoot 'research\afh_default_density_xe131\run_afh_spatial_response_audit.py'),
             (Join-Path $nativeRoot 'v6\dmformfactor-V6.m')
           )
@@ -242,6 +243,10 @@ jobs:
           $pythonExe = Join-Path $venv 'Scripts\python.exe'
           $pythonDir = Join-Path $out 'python'
           New-Item -ItemType Directory -Force -Path $pythonDir | Out-Null
+          & $pythonExe -m py_compile (Join-Path $study 'run_afh_full_response_database.py') (Join-Path $study 'validate_afh_full_response_database.py') (Join-Path $study 'compare_native_afh_full_response.py') (Join-Path $study 'tests\test_afh_full_response_database.py')
+          if ($LASTEXITCODE -ne 0) { throw 'Seven-isotope AFH Python source compilation failed.' }
+          & $pythonExe -m unittest discover -s (Join-Path $study 'tests') -p 'test_afh_full_response_database.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'Seven-isotope AFH Python regression tests failed.' }
           & $pythonExe (Join-Path $study 'run_afh_full_response_database.py') --outdir $pythonDir
           if ($LASTEXITCODE -ne 0) { throw 'Seven-isotope Python AFH database generation failed.' }
           & $pythonExe (Join-Path $study 'validate_afh_full_response_database.py') --csv (Join-Path $pythonDir 'afh_v6_full_eight_response_7isotope.csv') --out-json (Join-Path $pythonDir 'validation.json')
@@ -337,6 +342,7 @@ jobs:
               (Join-Path $nativeStudy 'compare_native_afh_full_response.py'),
               (Join-Path $nativeStudy 'run_afh_full_response_database.wls'),
               (Join-Path $nativeStudy 'run_afh_spatial_multipoles_native.wls'),
+              (Join-Path $nativeStudy 'tests\test_afh_full_response_database.py'),
               (Join-Path $p3Study 'run_xe131_dense_charge_dip_native.wls'),
               (Join-Path $p3Study 'validate_xe131_dense_charge_dip.py'),
               (Join-Path $p3Crosscheck 'compare_p3_spatial_vs_native.py'),
