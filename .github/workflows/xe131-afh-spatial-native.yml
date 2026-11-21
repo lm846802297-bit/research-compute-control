@@ -4,7 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       source_sha:
-        description: "Exact reviewed LZ-3-body-for-hdm commit SHA"
+        description: "Exact reviewed commit containing the native AFH v6.0 Wolfram exporters"
+        required: true
+        type: string
+        default: "aa493b2b76727da2fd51609fe87c647910f7e456"
+      p3_source_sha:
+        description: "Exact reviewed LZ commit containing the P3 comparators and dense-grid exporter"
         required: true
         type: string
         default: "61d7391aae3028276b0846802c19f2404a8a59f4"
@@ -36,56 +41,82 @@ jobs:
     runs-on: [self-hosted, Windows, X64, research-gpu]
     timeout-minutes: 180
     env:
-      SOURCE_SHA: ${{ github.event.inputs.source_sha || '61d7391aae3028276b0846802c19f2404a8a59f4' }}
+      NATIVE_SOURCE_SHA: ${{ github.event.inputs.source_sha || 'aa493b2b76727da2fd51609fe87c647910f7e456' }}
+      P3_SOURCE_SHA: ${{ github.event.inputs.p3_source_sha || '61d7391aae3028276b0846802c19f2404a8a59f4' }}
     steps:
       - name: Check out the private control repository
         uses: actions/checkout@v4
 
-      - name: Check out the pinned LZ research revision
+      - name: Check out the pinned native AFH exporter revision
         uses: actions/checkout@v4
         with:
           repository: lm846802297-bit/LZ-3-body-for-hdm
-          ref: ${{ github.event.inputs.source_sha || '61d7391aae3028276b0846802c19f2404a8a59f4' }}
-          token: ${{ secrets.LZ_RESEARCH_READ_TOKEN }}
-          path: research
+          ref: \${{ github.event.inputs.source_sha || 'aa493b2b76727da2fd51609fe87c647910f7e456' }}
+          token: \${{ secrets.LZ_RESEARCH_READ_TOKEN }}
+          path: native-source
           persist-credentials: false
 
-      - name: Verify pinned source and AFH inputs
+      - name: Check out the pinned P3 comparator and dense-grid revision
+        uses: actions/checkout@v4
+        with:
+          repository: lm846802297-bit/LZ-3-body-for-hdm
+          ref: \${{ github.event.inputs.p3_source_sha || '61d7391aae3028276b0846802c19f2404a8a59f4' }}
+          token: \${{ secrets.LZ_RESEARCH_READ_TOKEN }}
+          path: p3-source
+          persist-credentials: false
+
+      - name: Verify both pinned source revisions and AFH inputs
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $actual = (git -C "$env:GITHUB_WORKSPACE\research" rev-parse HEAD).Trim()
-          if ($actual -ne $env:SOURCE_SHA) {
-            throw "Research source SHA mismatch: expected $env:SOURCE_SHA, got $actual"
+          $nativeRoot = Join-Path $env:GITHUB_WORKSPACE 'native-source'
+          $p3Root = Join-Path $env:GITHUB_WORKSPACE 'p3-source'
+          $actualNative = (git -C $nativeRoot rev-parse HEAD).Trim()
+          $actualP3 = (git -C $p3Root rev-parse HEAD).Trim()
+          if ($actualNative -ne $env:NATIVE_SOURCE_SHA) {
+            throw "Native AFH source SHA mismatch: expected $env:NATIVE_SOURCE_SHA, got $actualNative"
           }
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
-          $required = @(
-            'run_afh_full_response_database.py',
-            'validate_afh_full_response_database.py',
-            'compare_native_afh_full_response.py',
-            'run_afh_full_response_database.wls',
-            'run_xe131_dense_charge_dip_native.wls',
-            'validate_xe131_dense_charge_dip.py',
-            'tests\test_validate_xe131_dense_charge_dip.py',
-            'run_afh_spatial_multipoles_native.wls',
-            'compare_p3_spatial_multipoles_native.py',
-            'tests\test_compare_p3_spatial_multipoles_native.py',
-            '..\afh_default_density_xe131\run_afh_spatial_response_audit.py',
-            '..\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe128_density_matrix.csv',
-            '..\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe129_density_matrix.csv',
-            '..\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe130_density_matrix.csv',
-            '..\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe131_density_matrix.csv',
-            '..\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe132_density_matrix.csv',
-            '..\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe134_density_matrix.csv',
-            '..\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe136_density_matrix.csv'
+          if ($actualP3 -ne $env:P3_SOURCE_SHA) {
+            throw "P3 source SHA mismatch: expected $env:P3_SOURCE_SHA, got $actualP3"
+          }
+
+          $nativeStudy = Join-Path $nativeRoot 'research\afh_full_response_database'
+          $p3Study = Join-Path $p3Root 'research\afh_full_response_database'
+          $p3Crosscheck = Join-Path $p3Root 'research\afh_response_crosschecks'
+          $p3MatchStudy = Join-Path $p3Root 'research\three_body_full_current_nucleon_match'
+          $nativeRequired = @(
+            (Join-Path $nativeStudy 'run_afh_full_response_database.py'),
+            (Join-Path $nativeStudy 'validate_afh_full_response_database.py'),
+            (Join-Path $nativeStudy 'compare_native_afh_full_response.py'),
+            (Join-Path $nativeStudy 'run_afh_full_response_database.wls'),
+            (Join-Path $nativeStudy 'run_afh_spatial_multipoles_native.wls'),
+            (Join-Path $nativeRoot 'research\afh_default_density_xe131\run_afh_spatial_response_audit.py'),
+            (Join-Path $nativeRoot 'v6\dmformfactor-V6.m')
           )
-          foreach ($relative in $required) {
-            $candidate = Join-Path $study $relative
+          foreach ($A in @(128,129,130,131,132,134,136)) {
+            $nativeRequired += Join-Path $nativeRoot ("research\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
+          }
+          $p3Required = @(
+            (Join-Path $p3Study 'run_xe131_dense_charge_dip_native.wls'),
+            (Join-Path $p3Study 'validate_xe131_dense_charge_dip.py'),
+            (Join-Path $p3Study 'tests\test_validate_xe131_dense_charge_dip.py'),
+            (Join-Path $p3Crosscheck 'compare_p3_spatial_vs_native.py'),
+            (Join-Path $p3Crosscheck 'compare_p3_multipoles_vs_native.py'),
+            (Join-Path $p3MatchStudy 'test_afh_native_multipole_comparator.py'),
+            (Join-Path $p3Root 'v6\dmformfactor-V6.m')
+          )
+          foreach ($candidate in $nativeRequired + $p3Required) {
             if (-not (Test-Path $candidate -PathType Leaf)) {
               throw "Required pinned research input is missing: $candidate"
             }
           }
-          Write-Host "Verified pinned research source $actual"
+          $afhHash = (Get-FileHash (Join-Path $nativeRoot 'v6\dmformfactor-V6.m') -Algorithm SHA256).Hash.ToLower()
+          if ($afhHash -ne 'dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372') {
+            throw "AFH v6.0 package hash mismatch: $afhHash"
+          }
+          Write-Host "Verified native exporter source $actualNative"
+          Write-Host "Verified P3 comparator source $actualP3"
+          Write-Host "Verified AFH v6.0 source SHA-256 $afhHash"
 
       - name: Verify Wolfram and prepare isolated Python environment
         shell: powershell
@@ -113,11 +144,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'native-source\research\afh_full_response_database'
           $nativeDir = Join-Path $out 'native'
           New-Item -ItemType Directory -Force -Path $nativeDir | Out-Null
           $env:AFH_FULL_RESPONSE_OUTDIR = $nativeDir
-          $env:DMFormFactorPath = Join-Path $env:GITHUB_WORKSPACE 'research\v6\dmformfactor-V6.m'
+          $env:DMFormFactorPath = Join-Path $env:GITHUB_WORKSPACE 'native-source\v6\dmformfactor-V6.m'
           $transcript = Join-Path $out 'native-wolfram-transcript.txt'
           Start-Transcript -Path $transcript -Force
           try {
@@ -141,11 +172,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'p3-source\research\afh_full_response_database'
           $denseDir = Join-Path $out 'native-dense-charge-dip'
           New-Item -ItemType Directory -Force -Path $denseDir | Out-Null
-          $env:DMFormFactorPath = Join-Path $env:GITHUB_WORKSPACE 'research\v6\dmformfactor-V6.m'
-          $env:AFH_SOURCE_COMMIT = $env:SOURCE_SHA
+          $env:DMFormFactorPath = Join-Path $env:GITHUB_WORKSPACE 'native-source\v6\dmformfactor-V6.m'
+          $env:AFH_SOURCE_COMMIT = $env:NATIVE_SOURCE_SHA
           $env:AFH_XE131_DENSE_CHARGE_OUTDIR = $denseDir
           & wolframscript -file (Join-Path $study 'run_xe131_dense_charge_dip_native.wls')
           if ($LASTEXITCODE -ne 0) { throw 'Dense native Xe-131 charge-response export failed.' }
@@ -161,7 +192,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'p3-source\research\afh_full_response_database'
           $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
           $pythonExe = Join-Path $venv 'Scripts\python.exe'
           $denseDir = Join-Path $out 'native-dense-charge-dip'
@@ -176,12 +207,12 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'native-source\research\afh_full_response_database'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
           $spatialOut = Join-Path $out 'native-spatial-multipoles'
           New-Item -ItemType Directory -Force -Path $spatialOut | Out-Null
           $env:AFH_SPATIAL_NATIVE_OUTDIR = $spatialOut
-          $env:AFH_SOURCE_COMMIT = $env:SOURCE_SHA
+          $env:AFH_SOURCE_COMMIT = $env:NATIVE_SOURCE_SHA
           & wolframscript -file (Join-Path $study 'run_afh_spatial_multipoles_native.wls')
           if ($LASTEXITCODE -ne 0) { throw 'Native AFH spatial multipole export failed.' }
           $nativeCsv = Join-Path $spatialOut 'afh_v6_xe129_xe131_spatial_multipoles_native.csv'
@@ -206,7 +237,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'native-source\research\afh_full_response_database'
           $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
           $pythonExe = Join-Path $venv 'Scripts\python.exe'
           $pythonDir = Join-Path $out 'python'
@@ -221,7 +252,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'native-source\research\afh_full_response_database'
           $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
           $pythonExe = Join-Path $venv 'Scripts\python.exe'
           $comparisonPath = Join-Path $out 'native-comparison.json'
@@ -345,7 +376,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'native-source\research\afh_full_response_database'
           $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
           $pythonExe = Join-Path $venv 'Scripts\python.exe'
           & $pythonExe -m py_compile (Join-Path $study 'compare_p3_spatial_multipoles_native.py') (Join-Path $study 'tests\test_compare_p3_spatial_multipoles_native.py')
@@ -358,7 +389,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'research\research\afh_full_response_database'
+          $study = Join-Path $env:GITHUB_WORKSPACE 'native-source\research\afh_full_response_database'
           $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
           $pythonExe = Join-Path $venv 'Scripts\python.exe'
           $p3Dir = Join-Path $out 'p3-spatial'
