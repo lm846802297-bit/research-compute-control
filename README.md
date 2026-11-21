@@ -6,7 +6,7 @@ Private control repository for trusted research jobs on a Windows self-hosted ru
 
 ## Current status
 
-The native AFH workflow has been updated in PR #2 and is pinned to LZ-3-body-for-hdm commit 5afc500a3102b857dd16e29432db8e6e068d65d1. Its current run (44346207069) is QUEUED with no assigned self-hosted runner; no native output or scientific validation is available yet. Bring the Windows/X64/research-gpu runner Online/Idle before expecting the job to start. The workflow uploads an artifact to this control repository and does not publish to the research repository.
+The native AFH workflow is pinned to LZ-3-body-for-hdm commit 5afc500a3102b857dd16e29432db8e6e068d65d1. The last recorded run (44346207069) was triggered by a push and is now CANCELLED; it produced no native AFH output or validation artifact. The P3-B input artifact `provisional-afh-spatial-obdme-responses` (LZ run 44337928314, artifact 14443055701) is a source-translated AFH result with `native_mathematica_spatial_crosscheck=false`; it is a provisional comparison input, not a native validation result. Run the native cross-check only through manual `workflow_dispatch` after the Windows/X64/research-gpu runner is Online/Idle. The workflow uploads an artifact to this control repository and does not publish to the research repository.
 
 ## Register the Windows runner
 
