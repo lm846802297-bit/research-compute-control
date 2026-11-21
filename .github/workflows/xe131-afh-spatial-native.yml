@@ -100,6 +100,8 @@ jobs:
             (Join-Path $p3Crosscheck 'compare_p3_spatial_vs_native.py'),
             (Join-Path $p3Crosscheck 'compare_p3_multipoles_vs_native.py'),
             (Join-Path $p3MatchStudy 'test_afh_native_multipole_comparator.py'),
+            (Join-Path $p3MatchStudy 'afh_spatial_obdme_responses.py'),
+            (Join-Path $p3MatchStudy 'validate_afh_spatial_multipole_archive.py'),
             (Join-Path $p3Root 'v6\dmformfactor-V6.m')
           )
           foreach ($candidate in $nativeRequired + $p3Required) {
@@ -129,7 +131,7 @@ jobs:
           $pythonExe = Join-Path $venv 'Scripts\python.exe'
           & $pythonExe -m pip install --upgrade pip
           if ($LASTEXITCODE -ne 0) { throw 'pip upgrade failed.' }
-          & $pythonExe -m pip install numpy scipy sympy
+          & $pythonExe -m pip install numpy==2.3.5 scipy==1.17.0 sympy==1.14.0
           if ($LASTEXITCODE -ne 0) { throw 'Numerical dependencies could not be installed.' }
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
           New-Item -ItemType Directory -Force -Path $out | Out-Null
@@ -326,9 +328,9 @@ jobs:
             if (Test-Path $spatialMeta) {
               $spatialMetaHash = (Get-FileHash $spatialMeta -Algorithm SHA256).Hash.ToLower()
               $spatialText = Get-Content -Raw $spatialMeta
-              $imagLine = ($spatialText -split "\`n" | Where-Object { $_ -like 'max_imaginary_residual=*' } | Select-Object -First 1)
+              $imagLine = ($spatialText -split '\r?\n' | Where-Object { $_ -like 'max_imaginary_residual=*' } | Select-Object -First 1)
               if ($imagLine) { $spatialImaginaryResidual = [double]($imagLine -replace '^max_imaginary_residual=', '') }
-              $rankLine = ($spatialText -split "\`n" | Where-Object { $_ -like 'rank_map=*' } | Select-Object -First 1)
+              $rankLine = ($spatialText -split '\r?\n' | Where-Object { $_ -like 'rank_map=*' } | Select-Object -First 1)
               if ($rankLine) { $spatialRankMap = $rankLine -replace '^rank_map=', '' }
             }
 
@@ -346,6 +348,8 @@ jobs:
               (Join-Path $p3Crosscheck 'compare_p3_spatial_vs_native.py'),
               (Join-Path $p3Crosscheck 'compare_p3_multipoles_vs_native.py'),
               (Join-Path $p3Root 'research\three_body_full_current_nucleon_match\test_afh_native_multipole_comparator.py'),
+              (Join-Path $p3Root 'research\three_body_full_current_nucleon_match\afh_spatial_obdme_responses.py'),
+              (Join-Path $p3Root 'research\three_body_full_current_nucleon_match\validate_afh_spatial_multipole_archive.py'),
               (Join-Path $nativeRoot 'v6\dmformfactor-V6.m')
             )
             $sourceHashes = [ordered]@{}
@@ -445,6 +449,39 @@ jobs:
           repository: lm846802297-bit/LZ-3-body-for-hdm
           run-id: ${{ github.event.inputs.p3_run_id || '44950264673' }}
           path: ${{ runner.temp }}/afh-eight-response/p3-spatial
+
+      - name: Validate P3-B spatial archive hashes, rank sums, and density-matrix inputs
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
+          $p3Dir = Join-Path $out 'p3-spatial'
+          $p3MatchStudy = Join-Path $env:GITHUB_WORKSPACE 'p3-source\research\three_body_full_current_nucleon_match'
+          $nativeRoot = Join-Path $env:GITHUB_WORKSPACE 'native-source'
+          $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
+          $pythonExe = Join-Path $venv 'Scripts\python.exe'
+          $validationPath = Join-Path $out 'p3-spatial-archive-validation.json'
+          & $pythonExe -m py_compile (Join-Path $p3MatchStudy 'validate_afh_spatial_multipole_archive.py')
+          if ($LASTEXITCODE -ne 0) { throw 'P3-B spatial archive validator compilation failed.' }
+          & $pythonExe (Join-Path $p3MatchStudy 'validate_afh_spatial_multipole_archive.py') --out-dir $p3Dir --out-json $validationPath
+          if ($LASTEXITCODE -ne 0) { throw 'P3-B spatial archive hash/rank-sum validation failed.' }
+
+          $metadata = Get-Content -Raw (Join-Path $p3Dir 'metadata.json') | ConvertFrom-Json
+          if ($metadata.source_file_sha256 -ne 'dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372') {
+            throw 'P3-B AFH source hash does not match the pinned AFH v6.0 package.'
+          }
+          foreach ($entry in $metadata.isotope_metadata) {
+            $A = [int]$entry.A
+            $matrixPath = Join-Path $nativeRoot ("research\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
+            $actualMatrixHash = (Get-FileHash $matrixPath -Algorithm SHA256).Hash.ToLower()
+            if ($actualMatrixHash -ne $entry.matrix_sha256) {
+              throw "P3/native AFH density-matrix hash mismatch for Xe-$A."
+            }
+          }
+          $validation = Get-Content -Raw $validationPath | ConvertFrom-Json
+          if ($validation.status -ne 'PASS_AFH_SPATIAL_MULTIPOLE_ARCHIVE' -or $validation.native_afh_validated -ne $false) {
+            throw 'P3-B source-translated archive integrity gate did not pass with provisional status preserved.'
+          }
 
       - name: Compile and test native P3 spatial comparators
         shell: powershell
