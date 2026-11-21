@@ -1,5 +1,7 @@
 # Research runner control
 
+- Mandatory research compute architecture and reproducibility policy: [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md)
+
 Private control repository for trusted research jobs on a Windows self-hosted runner.
 
 ## Current status
