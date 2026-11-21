@@ -37,8 +37,8 @@ It uses two deliberately separate, full-SHA-pinned checkouts:
 
 | Role | Exact commit | Contents |
 |---|---|---|
-| Native AFH exporter source | \`aa493b2b76727da2fd51609fe87c647910f7e456\` | Seven-isotope AFH generator, validator, native Wolfram eight-response exporter, rank-resolved Delta/SigmaPrime exporter |
-| P3 comparator and dense-grid source | \`61d7391aae3028276b0846802c19f2404a8a59f4\` | Xe-131 dense charge-dip WLS exporter and the two P3-vs-native AFH comparators |
+| Native AFH exporter source | `aa493b2b76727da2fd51609fe87c647910f7e456` | Seven-isotope AFH generator, validator, native Wolfram eight-response exporter, rank-resolved Delta/SigmaPrime exporter |
+| P3 comparator and dense-grid source | `61d7391aae3028276b0846802c19f2404a8a59f4` | Xe-131 dense charge-dip WLS exporter and the two P3-vs-native AFH comparators |
 
 The P3-B input is LZ-3-body-for-hdm workflow run
 [44950264673](https://github.com/lm846802297-bit/LZ-3-body-for-hdm/actions/runs/44950264673),
@@ -46,11 +46,11 @@ artifact **14724884350**. The artifact is source-translated Python AFH data;
 it remains provisional until the direct native comparisons pass.
 
 Both pinned checkouts contain the same AFH v6.0 package blob
-\`91b43b1a4596bebd6073ecd44c0c9464e5dd0c63\`. The workflow independently
+`91b43b1a4596bebd6073ecd44c0c9464e5dd0c63`. The workflow independently
 checks its SHA-256:
-\`dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372\`.
+`dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372`.
 
-The native exporter evaluates AFH v6.0 \`ResponseNuclear[y,index,0,0]\` for
+The native exporter evaluates AFH v6.0 `ResponseNuclear[y,index,0,0]` for
 indices 1--8 and the seven available default-density isotopes:
 Xe-128, Xe-129, Xe-130, Xe-131, Xe-132, Xe-134, and Xe-136. The common
 response grid contains 2,401 points from 0 to 0.6 GeV, giving 16,807
@@ -85,9 +85,9 @@ multipole inputs used by the separate P3 calculation.
 
 The workflow is manually dispatched on the Windows/X64/research-gpu
 self-hosted runner. Before dispatch, confirm that the runner is Online/Idle,
-\`wolframscript -version\` works under its runner account, Wolfram Engine is
-installed and activated, and \`LZ_RESEARCH_READ_TOKEN\` has Contents:
-Read-only access to \`lm846802297-bit/LZ-3-body-for-hdm\`.
+`wolframscript -version` works under its runner account, Wolfram Engine is
+installed and activated, and `LZ_RESEARCH_READ_TOKEN` has Contents:
+Read-only access to `lm846802297-bit/LZ-3-body-for-hdm`.
 
 The source-path correction and dual-source pinning are proposed in the
 current native-AFH repair branch. That branch has not yet produced a native
