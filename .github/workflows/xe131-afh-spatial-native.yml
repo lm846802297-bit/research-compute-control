@@ -92,6 +92,7 @@ jobs:
             (Join-Path $nativeStudy 'run_afh_spatial_multipoles_native.wls'),
             (Join-Path $nativeStudy 'tests\test_afh_full_response_database.py'),
             (Join-Path $nativeRoot 'research\afh_default_density_xe131\run_afh_spatial_response_audit.py'),
+            (Join-Path $nativeRoot 'research\afh_default_density_xe131\output\phi_response_native\afh_default_xe131_M_PhiPP_native.csv'),
             (Join-Path $nativeRoot 'v6\dmformfactor-V6.m')
           )
           foreach ($A in @(128,129,130,131,132,134,136)) {
@@ -362,6 +363,7 @@ jobs:
             foreach ($A in @(128,129,130,131,132,134,136)) {
               $matrixFiles += Join-Path $nativeRoot ("research\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
             }
+            $matrixFiles += Join-Path $nativeRoot 'research\afh_default_density_xe131\output\phi_response_native\afh_default_xe131_M_PhiPP_native.csv'
             $inputHashes = [ordered]@{}
             foreach ($file in $matrixFiles + @((Join-Path $nativeRoot 'v6\dmformfactor-V6.m'))) {
               if (Test-Path $file -PathType Leaf) {
