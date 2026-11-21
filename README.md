@@ -1,6 +1,6 @@
 # Research runner control
 
-- Mandatory research compute architecture and reproducibility policy: [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md)
+> **Research compute architecture:** [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md) in each linked research repository is normative: ordinary GPT chat uses ChatGPT Linux for primary calculations; Codex/Work may use the user's Windows local environment or a GPT-managed cloud computer; GitHub stores canonical source/results; Actions is used for independent verification. This repository's Windows self-hosted Actions runner remains a separate, explicitly authorized cross-check path, even when it runs on the same physical PC used by Codex/Work.
 
 Private control repository for trusted research jobs on a Windows self-hosted runner.
 
@@ -19,6 +19,8 @@ The native AFH workflow has been updated in PR #2 and is pinned to LZ-3-body-for
 The custom label is mandatory for the diagnostic. A GPU label does not install drivers, CUDA, Python, or make CPU-only code run on a GPU. Offline runners cause jobs to wait.
 
 ## Research integration policy
+
+The project-wide [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md) defines the primary-compute and independent-verification split. Use this Windows self-hosted runner only for explicitly scoped, trusted independent checks (including native Wolfram/Mathematica cross-checks when required); do not route the primary parameter scan here by default.
 
 - Only manually dispatched workflows in this private repository should use its runner. Do not execute untrusted PRs, arbitrary shell commands supplied as inputs, or unreviewed repository refs on the persistent host.
 - For cross-repository reusable workflows, use a reviewed full commit SHA for the workflow and separately pin the research source checkout to a reviewed full commit SHA. Record code, data and dependency versions, command, parameters, environment and hashes for each run.
