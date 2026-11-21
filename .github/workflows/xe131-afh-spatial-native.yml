@@ -23,11 +23,6 @@ on:
         required: true
         type: string
         default: "14724884350"
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/xe131-afh-spatial-native.yml"
 
 permissions:
   contents: read
@@ -344,8 +339,10 @@ jobs:
               (Join-Path $nativeStudy 'run_afh_full_response_database.wls'),
               (Join-Path $nativeStudy 'run_afh_spatial_multipoles_native.wls'),
               (Join-Path $nativeStudy 'tests\test_afh_full_response_database.py'),
+              (Join-Path $nativeRoot 'research\afh_default_density_xe131\run_afh_spatial_response_audit.py'),
               (Join-Path $p3Study 'run_xe131_dense_charge_dip_native.wls'),
               (Join-Path $p3Study 'validate_xe131_dense_charge_dip.py'),
+              (Join-Path $p3Study 'tests\test_validate_xe131_dense_charge_dip.py'),
               (Join-Path $p3Crosscheck 'compare_p3_spatial_vs_native.py'),
               (Join-Path $p3Crosscheck 'compare_p3_multipoles_vs_native.py'),
               (Join-Path $p3Root 'research\three_body_full_current_nucleon_match\test_afh_native_multipole_comparator.py'),
