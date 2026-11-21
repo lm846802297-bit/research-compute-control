@@ -51,8 +51,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: lm846802297-bit/LZ-3-body-for-hdm
-          ref: \${{ github.event.inputs.source_sha || 'aa493b2b76727da2fd51609fe87c647910f7e456' }}
-          token: \${{ secrets.LZ_RESEARCH_READ_TOKEN }}
+          ref: ${{ github.event.inputs.source_sha || 'aa493b2b76727da2fd51609fe87c647910f7e456' }}
+          token: ${{ secrets.LZ_RESEARCH_READ_TOKEN }}
           path: native-source
           persist-credentials: false
 
@@ -60,8 +60,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: lm846802297-bit/LZ-3-body-for-hdm
-          ref: \${{ github.event.inputs.p3_source_sha || '61d7391aae3028276b0846802c19f2404a8a59f4' }}
-          token: \${{ secrets.LZ_RESEARCH_READ_TOKEN }}
+          ref: ${{ github.event.inputs.p3_source_sha || '61d7391aae3028276b0846802c19f2404a8a59f4' }}
+          token: ${{ secrets.LZ_RESEARCH_READ_TOKEN }}
           path: p3-source
           persist-credentials: false
 
@@ -263,13 +263,18 @@ jobs:
             throw "Expected native PASS for 16,807 rows; status=$($comparison.status), rows=$($comparison.rows_compared)."
           }
 
-      - name: Write provenance manifest
+      - name: Write runtime, hardware, source, and native-output provenance
         if: always()
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
           if (Test-Path $out) {
+            $nativeRoot = Join-Path $env:GITHUB_WORKSPACE 'native-source'
+            $p3Root = Join-Path $env:GITHUB_WORKSPACE 'p3-source'
+            $nativeStudy = Join-Path $nativeRoot 'research\afh_full_response_database'
+            $p3Study = Join-Path $p3Root 'research\afh_full_response_database'
+            $p3Crosscheck = Join-Path $p3Root 'research\afh_response_crosschecks'
             $comparisonPath = Join-Path $out 'native-comparison.json'
             $comparison = $null
             if (Test-Path $comparisonPath) {
@@ -283,6 +288,7 @@ jobs:
             if (Test-Path (Join-Path $out 'python-version.txt')) {
               $pythonVersionValue = (Get-Content -Raw (Join-Path $out 'python-version.txt')).Trim()
             }
+
             $denseDir = Join-Path $out 'native-dense-charge-dip'
             $denseCsv = Join-Path $denseDir 'xe131_dense_charge_response_dip_native.csv'
             $denseMeta = Join-Path $denseDir 'xe131_dense_charge_response_dip_metadata.txt'
@@ -303,6 +309,7 @@ jobs:
               $denseValidationHash = (Get-FileHash $denseValidationPath -Algorithm SHA256).Hash.ToLower()
               $denseValidation = Get-Content -Raw $denseValidationPath | ConvertFrom-Json
             }
+
             $spatialDir = Join-Path $out 'native-spatial-multipoles'
             $spatialCsv = Join-Path $spatialDir 'afh_v6_xe129_xe131_spatial_multipoles_native.csv'
             $spatialMeta = Join-Path $spatialDir 'native_spatial_multipole_metadata.txt'
@@ -318,19 +325,82 @@ jobs:
             if (Test-Path $spatialMeta) {
               $spatialMetaHash = (Get-FileHash $spatialMeta -Algorithm SHA256).Hash.ToLower()
               $spatialText = Get-Content -Raw $spatialMeta
-              $imagLine = ($spatialText -split "`n" | Where-Object { $_ -like 'max_imaginary_residual=*' } | Select-Object -First 1)
+              $imagLine = ($spatialText -split "\`n" | Where-Object { $_ -like 'max_imaginary_residual=*' } | Select-Object -First 1)
               if ($imagLine) { $spatialImaginaryResidual = [double]($imagLine -replace '^max_imaginary_residual=', '') }
-              $rankLine = ($spatialText -split "`n" | Where-Object { $_ -like 'rank_map=*' } | Select-Object -First 1)
+              $rankLine = ($spatialText -split "\`n" | Where-Object { $_ -like 'rank_map=*' } | Select-Object -First 1)
               if ($rankLine) { $spatialRankMap = $rankLine -replace '^rank_map=', '' }
             }
+
+            $sourceFiles = @(
+              (Join-Path $nativeStudy 'run_afh_full_response_database.py'),
+              (Join-Path $nativeStudy 'validate_afh_full_response_database.py'),
+              (Join-Path $nativeStudy 'compare_native_afh_full_response.py'),
+              (Join-Path $nativeStudy 'run_afh_full_response_database.wls'),
+              (Join-Path $nativeStudy 'run_afh_spatial_multipoles_native.wls'),
+              (Join-Path $p3Study 'run_xe131_dense_charge_dip_native.wls'),
+              (Join-Path $p3Study 'validate_xe131_dense_charge_dip.py'),
+              (Join-Path $p3Crosscheck 'compare_p3_spatial_vs_native.py'),
+              (Join-Path $p3Crosscheck 'compare_p3_multipoles_vs_native.py'),
+              (Join-Path $p3Root 'research\three_body_full_current_nucleon_match\test_afh_native_multipole_comparator.py'),
+              (Join-Path $nativeRoot 'v6\dmformfactor-V6.m')
+            )
+            $sourceHashes = [ordered]@{}
+            foreach ($file in $sourceFiles) {
+              if (Test-Path $file -PathType Leaf) {
+                $relative = $file.Substring($env:GITHUB_WORKSPACE.Length + 1)
+                $sourceHashes[$relative] = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+              }
+            }
+
+            $matrixFiles = @()
+            foreach ($A in @(128,129,130,131,132,134,136)) {
+              $matrixFiles += Join-Path $nativeRoot ("research\afh_default_density_natural_xenon_halo\input\afh_default_density_matrices\afh_default_xe{0}_density_matrix.csv" -f $A)
+            }
+            $inputHashes = [ordered]@{}
+            foreach ($file in $matrixFiles + @((Join-Path $nativeRoot 'v6\dmformfactor-V6.m'))) {
+              if (Test-Path $file -PathType Leaf) {
+                $relative = $file.Substring($env:GITHUB_WORKSPACE.Length + 1)
+                $inputHashes[$relative] = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+              }
+            }
+
+            $os = Get-CimInstance Win32_OperatingSystem
+            $computer = Get-CimInstance Win32_ComputerSystem
+            $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+            $gpus = @(Get-CimInstance Win32_VideoController | ForEach-Object {
+              [ordered]@{ name = $_.Name; driver_version = $_.DriverVersion }
+            })
+            $pythonPackages = $null
+            $pythonExe = Join-Path (Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv') 'Scripts\python.exe'
+            if (Test-Path $pythonExe) {
+              $packageJson = & $pythonExe -c "import importlib.metadata as m, json; print(json.dumps({n:m.version(n) for n in ('numpy','scipy','sympy')}))"
+              if ($LASTEXITCODE -eq 0) { $pythonPackages = $packageJson | ConvertFrom-Json }
+            }
+
             $manifest = [ordered]@{
               repository = 'lm846802297-bit/LZ-3-body-for-hdm'
-              source_commit = $env:SOURCE_SHA
+              source_commit = $env:NATIVE_SOURCE_SHA
+              p3_source_commit = $env:P3_SOURCE_SHA
               control_run_id = $env:GITHUB_RUN_ID
               control_run_attempt = $env:GITHUB_RUN_ATTEMPT
               native_package = 'AFH DMFormFactor v6.0'
               wolfram_version = $wolframVersionValue
               python_version = $pythonVersionValue
+              python_packages = $pythonPackages
+              runner_environment = [ordered]@{
+                os_caption = $os.Caption
+                os_version = $os.Version
+                architecture = $env:PROCESSOR_ARCHITECTURE
+                powershell_version = $PSVersionTable.PSVersion.ToString()
+              }
+              hardware = [ordered]@{
+                cpu_model = $cpu.Name
+                logical_processors = $computer.NumberOfLogicalProcessors
+                physical_memory_bytes = [int64]$computer.TotalPhysicalMemory
+                gpus = $gpus
+              }
+              source_sha256 = $sourceHashes
+              input_sha256 = $inputHashes
               isotopes = @(128,129,130,131,132,134,136)
               response_indices = [ordered]@{ M=1; SigmaDoublePrime=2; SigmaPrime=3; PhiPP=4; PhiTildePrime=5; Delta=6; MPhiPP=7; SigmaPrimeDelta=8 }
               q_grid = [ordered]@{ points=2401; q_min_GeV=0.0; q_max_GeV=0.6; step_GeV=0.00025 }
@@ -359,7 +429,7 @@ jobs:
               }
               scope = 'native AFH total-response and rank-resolved spatial-multipole pointwise export; no finite-t nucleon form factors and no three-body L_mu_nu W_A_mu_nu contraction'
             }
-            $manifest | ConvertTo-Json -Depth 16 | Set-Content -Path (Join-Path $out 'run_manifest.json') -Encoding UTF8
+            $manifest | ConvertTo-Json -Depth 32 | Set-Content -Path (Join-Path $out 'run_manifest.json') -Encoding UTF8
           }
 
       - name: Download the P3-B spatial response and rank-resolved multipole artifact
@@ -371,51 +441,83 @@ jobs:
           run-id: ${{ github.event.inputs.p3_run_id || '44950264673' }}
           path: ${{ runner.temp }}/afh-eight-response/p3-spatial
 
-      - name: Compile and test native P3 multipole comparator
+      - name: Compile and test native P3 spatial comparators
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'native-source\research\afh_full_response_database'
+          $p3Crosscheck = Join-Path $env:GITHUB_WORKSPACE 'p3-source\research\afh_response_crosschecks'
+          $p3MatchStudy = Join-Path $env:GITHUB_WORKSPACE 'p3-source\research\three_body_full_current_nucleon_match'
           $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
           $pythonExe = Join-Path $venv 'Scripts\python.exe'
-          & $pythonExe -m py_compile (Join-Path $study 'compare_p3_spatial_multipoles_native.py') (Join-Path $study 'tests\test_compare_p3_spatial_multipoles_native.py')
-          if ($LASTEXITCODE -ne 0) { throw 'Native P3 multipole comparator compilation failed.' }
-          & $pythonExe -m unittest discover -s (Join-Path $study 'tests') -p 'test_compare_p3_spatial_multipoles_native.py' -v
-          if ($LASTEXITCODE -ne 0) { throw 'Native P3 multipole comparator unit tests failed.' }
+          & $pythonExe -m py_compile (Join-Path $p3Crosscheck 'compare_p3_spatial_vs_native.py') (Join-Path $p3Crosscheck 'compare_p3_multipoles_vs_native.py') (Join-Path $p3MatchStudy 'test_afh_native_multipole_comparator.py')
+          if ($LASTEXITCODE -ne 0) { throw 'P3 native AFH comparator compilation failed.' }
+          & $pythonExe -m unittest discover -s $p3MatchStudy -p 'test_afh_native_multipole_comparator.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'P3 native multipole comparator regression tests failed.' }
 
-      - name: Compare P3-B total responses and rank-resolved amplitudes with native AFH
+      - name: Compare P3-B total spatial responses with native AFH
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
-          $study = Join-Path $env:GITHUB_WORKSPACE 'native-source\research\afh_full_response_database'
-          $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
-          $pythonExe = Join-Path $venv 'Scripts\python.exe'
+          $p3Crosscheck = Join-Path $env:GITHUB_WORKSPACE 'p3-source\research\afh_response_crosschecks'
           $p3Dir = Join-Path $out 'p3-spatial'
           $nativeDir = Join-Path $out 'native'
+          $manifestPath = Join-Path $out 'run_manifest.json'
+          $resultPath = Join-Path $out 'p3-native-spatial-response-comparison.json'
+          $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
+          $pythonExe = Join-Path $venv 'Scripts\python.exe'
+          & $pythonExe (Join-Path $p3Crosscheck 'compare_p3_spatial_vs_native.py') --p3-csv (Join-Path $p3Dir 'afh_spatial_obdme_responses_7isotope_2401.csv') --p3-metadata (Join-Path $p3Dir 'metadata.json') --native-dir $nativeDir --native-metadata (Join-Path $nativeDir 'native_metadata.txt') --native-manifest $manifestPath --out-json $resultPath
+          if ($LASTEXITCODE -ne 0) { throw 'P3-B native AFH total-response comparison failed.' }
+
+      - name: Compare P3-B rank-resolved spatial amplitudes with native AFH
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
+          $p3Crosscheck = Join-Path $env:GITHUB_WORKSPACE 'p3-source\research\afh_response_crosschecks'
+          $p3Dir = Join-Path $out 'p3-spatial'
           $nativeSpatialDir = Join-Path $out 'native-spatial-multipoles'
           $manifestPath = Join-Path $out 'run_manifest.json'
-          $resultPath = Join-Path $out 'p3-native-spatial-comparison.json'
-          & $pythonExe (Join-Path $study 'compare_p3_spatial_multipoles_native.py') --p3-dir $p3Dir --native-dir $nativeDir --native-spatial-dir $nativeSpatialDir --native-manifest $manifestPath --expected-source-commit $env:SOURCE_SHA --out-json $resultPath
-          if ($LASTEXITCODE -ne 0) { throw 'P3-B native AFH total-response/rankwise multipole comparison failed.' }
+          $resultPath = Join-Path $out 'p3-native-spatial-multipole-comparison.json'
+          $venv = Join-Path $env:RUNNER_TEMP 'afh-eight-response-python-venv'
+          $pythonExe = Join-Path $venv 'Scripts\python.exe'
+          & $pythonExe (Join-Path $p3Crosscheck 'compare_p3_multipoles_vs_native.py') --p3-multipole-csv (Join-Path $p3Dir 'afh_spatial_obdme_multipoles_7isotope_2401.csv') --p3-metadata (Join-Path $p3Dir 'metadata.json') --native-multipole-csv (Join-Path $nativeSpatialDir 'afh_v6_xe129_xe131_spatial_multipoles_native.csv') --native-metadata (Join-Path $nativeSpatialDir 'native_spatial_multipole_metadata.txt') --native-manifest $manifestPath --out-json $resultPath
+          if ($LASTEXITCODE -ne 0) { throw 'P3-B native AFH rank-resolved multipole comparison failed.' }
 
-      - name: Attach P3 spatial comparison to provenance manifest
+      - name: Attach P3 response, multipole, and artifact provenance
         if: always()
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'afh-eight-response'
           $manifestPath = Join-Path $out 'run_manifest.json'
-          $comparisonPath = Join-Path $out 'p3-native-spatial-comparison.json'
-          if ((Test-Path $manifestPath) -and (Test-Path $comparisonPath)) {
+          $responsePath = Join-Path $out 'p3-native-spatial-response-comparison.json'
+          $multipolePath = Join-Path $out 'p3-native-spatial-multipole-comparison.json'
+          $p3Dir = Join-Path $out 'p3-spatial'
+          if (Test-Path $manifestPath) {
             $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
-            $p3Comparison = Get-Content -Raw $comparisonPath | ConvertFrom-Json
-            $manifest | Add-Member -NotePropertyName p3_spatial_multipole_crosscheck -NotePropertyValue $p3Comparison -Force
+            if (Test-Path $responsePath) {
+              $responseComparison = Get-Content -Raw $responsePath | ConvertFrom-Json
+              $manifest | Add-Member -NotePropertyName p3_spatial_response_crosscheck -NotePropertyValue $responseComparison -Force
+            }
+            if (Test-Path $multipolePath) {
+              $multipoleComparison = Get-Content -Raw $multipolePath | ConvertFrom-Json
+              $manifest | Add-Member -NotePropertyName p3_spatial_multipole_crosscheck -NotePropertyValue $multipoleComparison -Force
+            }
+            $p3ArtifactFiles = [ordered]@{}
+            foreach ($name in @('metadata.json','afh_spatial_obdme_responses_7isotope_2401.csv','afh_spatial_obdme_multipoles_7isotope_2401.csv')) {
+              $file = Join-Path $p3Dir $name
+              if (Test-Path $file -PathType Leaf) {
+                $p3ArtifactFiles[$name] = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+              }
+            }
             $manifest | Add-Member -NotePropertyName p3_artifact_provenance -NotePropertyValue ([ordered]@{
               repository = 'lm846802297-bit/LZ-3-body-for-hdm'
               run_id = '${{ github.event.inputs.p3_run_id || '44950264673' }}'
               artifact_id = '${{ github.event.inputs.p3_artifact_id || '14724884350' }}'
+              source_commit = $env:P3_SOURCE_SHA
+              file_sha256 = $p3ArtifactFiles
             }) -Force
             $manifest | ConvertTo-Json -Depth 32 | Set-Content -Path $manifestPath -Encoding UTF8
           }
