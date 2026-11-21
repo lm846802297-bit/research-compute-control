@@ -33,69 +33,57 @@ The project-wide [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md) define
 
 The reviewed workflow is
 [xe131-afh-spatial-native.yml](.github/workflows/xe131-afh-spatial-native.yml).
-It checks out the exact LZ research commit
-`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b` and runs the AFH v6.0 native
-Wolfram exporter for all seven available xenon default-density isotopes:
-Xe-128, Xe-129, Xe-130, Xe-131, Xe-132, Xe-134, and Xe-136.
+It is pinned to the exact P3-B source merge commit
+61d7391aae3028276b0846802c19f2404a8a59f4 and the spatial-response artifact
+from LZ-3-body-for-hdm workflow run 44950264673, artifact 14724884350.
 
-The calculation exports AFH `ResponseNuclear[y,index,0,0]` for indices 1--8
-on the common 2,401-point grid from 0 to 0.6 GeV. The eight channels are
-M, Sigma-double-prime, Sigma-prime, Phi-double-prime, Phi-tilde-prime,
-Delta, M--Phi-double-prime interference, and Sigma-prime--Delta interference.
-It preserves the raw isoscalar package convention and exports imaginary
-residuals separately. The same pinned source is used to generate the Python
-database; the workflow then compares all 16,807 isotope/q rows and all eight
-responses point by point. Acceptance requires relative tolerance 5e-7,
-absolute tolerance 2e-12, and negligible native imaginary parts.
+Pinned input hashes:
+- AFH v6.0 source: dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372.
+- Seven-isotope spatial-response CSV:
+  4e0a23c18d29df3af04a2531e75b7bffeaa3251d0efe97674b2287cf3c25e7e3.
+- Rank-resolved spatial multipole CSV:
+  e83f7499cd0af4ec8f1974238f09daf4899ca1b87205ec837ae0964a2e8532c6.
 
-The workflow also checks the raw-to-physical conversion
-`R_X_raw = 4*pi*W_X/(2*J_A+1)` and applies the equal-p/n factor four only
-in the physical output columns. It does not compute finite-t nucleon form
-factors, the three-body `L_munu^(3) W_A^(munu)` contraction, halo folding,
-or detector predictions.
+The native exporter evaluates AFH v6.0 ResponseNuclear[y,index,0,0] for
+indices 1--8 and the seven available default-density isotopes:
+Xe-128, Xe-129, Xe-130, Xe-131, Xe-132, Xe-134, and Xe-136. The common
+response grid contains 2,401 points from 0 to 0.6 GeV, for 16,807 isotope/q
+rows. The workflow also exports the 121-point Xe-131 dense charge dip and
+native rank-resolved Xe-129/Xe-131 DeltaJ/SigmaPJ multipoles, then runs the
+pointwise comparators and writes source/input/output provenance and SHA-256
+manifests.
 
-Before running, confirm that the Windows runner is Online/Idle, that
-`wolframscript -version` works under its runner account, and that the
-`LZ_RESEARCH_READ_TOKEN` repository secret has Contents: Read-only access
-to `lm846802297-bit/LZ-3-body-for-hdm`. The workflow does not write back to
-the research repository.
+The eight response channels are M, Sigma-double-prime, Sigma-prime,
+Phi-double-prime, Phi-tilde-prime, Delta, M--Phi-double-prime interference,
+and Sigma-prime--Delta interference. It preserves the raw isoscalar package
+convention and exports imaginary residuals separately. Physical conversion
+is R_X_raw=4*pi*W_X/(2*J_A+1), with the equal-p/n factor four applied only
+once in physical output columns.
 
-The current native run is 44222502400, attempt 2, and remains queued.
-It pins the LZ research checkout to
-`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b`.
+Acceptance requires pointwise relative tolerance 5e-7, absolute tolerance
+2e-12, negligible imaginary parts, rank-sum reconstruction, and the
+Cauchy/PSD checks. The native result is independent of the Python
+source-translated response archive; the latter remains PROVISIONAL until
+the native pointwise comparison passes. This workflow does not calculate
+finite-t_N nucleon form factors, the complete three-body
+L_munu^(3) W_A^(munu) contraction, halo folding, or detector predictions.
 
-**The provisional Python artifact consumed by PR #58 and the native
-workflow are in fact source-aligned.** The PR #58 artifact is from LZ
-workflow run 44222087512, artifact 14391456283. The Actions API reports
-`head_sha=7cb5867fd40ce59194ba9a03252196f1fb38ccdd`, which is the PR branch
-head. However, this was a `pull_request` workflow: the checked-out merge
-commit recorded inside the artifact's `source_commit.txt` is
-`dcefbeb7ad705b6c03f2b4689200eb1d9252e67b`, exactly the source commit pinned
-by the native workflow. The artifact's `SHA256SUMS.txt` records the
-`source_commit.txt` SHA-256 as
-`020420f04915cf0a6cda7cc6581f55b99f672a1dc29d88c921f8fa8d5d759b11`.
+The workflow is manual workflow_dispatch on the Windows/X64/research-gpu
+self-hosted runner. Before dispatch, confirm that the runner is Online/Idle,
+wolframscript -version works under its runner account, Wolfram Engine is
+installed and activated, and the LZ_RESEARCH_READ_TOKEN secret has
+Contents: Read-only access to lm846802297-bit/LZ-3-body-for-hdm.
 
-As an independent check, the calculation-critical Git blobs are identical
-between the PR head and pinned merge commit:
+The main-branch workflow defaults are already pinned to the source merge
+commit and P3-B artifact above. A push-triggered attempt did not create a
+run. The rerun request for the previous cancelled attempt was accepted, but
+replacement job 136992427950 was cancelled before its first step (zero steps
+executed). There is no native Mathematica output yet. Manually dispatch the
+workflow after confirming the Windows runner is Online/Idle.
 
-| Calculation input | Git blob SHA |
-|---|---|
-| Seven-isotope/eight-response Python generator | `592334e17731278a397cc7a09bd4af7bfe00094b` |
-| Native Wolfram exporter | `efffa3876fc61adfc3c80ea8e5f81296623a18ad` |
-| Native comparison script | `9b858cafff6d33dcce95637d914e2b77ab17d2d6` |
-| AFH v6.0 package source | `91b43b1a4596bebd6073ecd44c0c9464e5dd0c63` |
-| AFH Xe-131 base implementation | `5280eb8844fcb562e783a9f74860aedd4a7f7a4e` |
+A queued or cancelled native job is not a calculation result and must never
+be reported as a native AFH PASS.
 
-All seven default-density CSV inputs (Xe-128, 129, 130, 131, 132, 134,
-136) also have identical Git blob SHAs. The native workflow independently
-regenerates its Python reference database from the pinned dcefbeb checkout
-before comparing native Wolfram outputs; it does not depend on the separate
-provisional artifact. The external artifact remains explicitly
-`PROVISIONAL_PYTHON` with `native_afh_validated=false`, and is used only
-for the PR #58 provisional fixed-speed diagnostic.
-
-A queued native run is not a calculation result and must not be reported as
-a native AFH PASS.
 ## Native Xe-131 Mathematica full-cross-section run
 
 A manually dispatched Windows self-hosted workflow is provided at
