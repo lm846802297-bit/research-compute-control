@@ -2,6 +2,8 @@
 
 Private control repository for trusted research jobs on a Windows self-hosted runner.
 
+> **Research compute architecture:** [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md) in each linked research repository is normative: ordinary GPT chat uses ChatGPT Linux for primary calculations; Codex/Work may use the user's Windows local environment or a GPT-managed cloud computer; GitHub stores canonical source/results; Actions is used for independent verification. This repository's Windows self-hosted Actions runner remains a separate, explicitly authorized cross-check path, even when it runs on the same physical PC used by Codex/Work.
+
 ## Current status
 
 The Windows self-hosted runner is configured for native Wolfram/Mathematica research jobs. The seven-isotope AFH v6.0 eight-response workflow is now pinned to LZ-3-body-for-hdm commit dcefbeb7ad705b6c03f2b4689200eb1d9252e67b. Its latest run (44222502400) is queued for the self-hosted runner; no native output or scientific validation is available yet. The workflow uploads an artifact to this control repository and does not publish to the research repository.
@@ -17,6 +19,8 @@ The Windows self-hosted runner is configured for native Wolfram/Mathematica rese
 The custom label is mandatory for the diagnostic. A GPU label does not install drivers, CUDA, Python, or make CPU-only code run on a GPU. Offline runners cause jobs to wait.
 
 ## Research integration policy
+
+The project-wide [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md) defines the primary-compute and independent-verification split. Use this Windows self-hosted runner only for explicitly scoped, trusted independent checks (including native Wolfram/Mathematica cross-checks when required); do not route the primary parameter scan here by default.
 
 - Only manually dispatched workflows in this private repository should use its runner. Do not execute untrusted PRs, arbitrary shell commands supplied as inputs, or unreviewed repository refs on the persistent host.
 - For cross-repository reusable workflows, use a reviewed full commit SHA for the workflow and separately pin the research source checkout to a reviewed full commit SHA. Record code, data and dependency versions, command, parameters, environment and hashes for each run.
