@@ -59,22 +59,40 @@ a source-translated comparison input, not a native AFH validation result.
 The separate native reference run `44919924790` checked out
 `3f13b37611d043f823b39ac8ebd8ee7e7ae4ebbc`, passed its native AFH and
 spatial-multipole validation steps, and uploaded artifact `14713605942`.
-That reference run is not an execution of this control-repository workflow.
+Its artifact is 2,335,579 bytes with ZIP SHA-256
+`0fed6d80870710ef044bdeb9a49de7cb01765a0553a9717ace468e60eaeebe4f`.
+The P3-B artifact is 1,125,446 bytes with ZIP SHA-256
+`b291a5a1bea1edfbc766084097ebef756b58ecae5fb3cf4aa9ff16a92d6af11c`.
+The P3-B metadata and validation record identify it as a source-translated
+provisional input, not a native AFH result. Both ZIP digests were independently
+recomputed from the downloaded artifacts and match the GitHub artifact API.
+The native reference run is not an execution of this control-repository workflow.
 
 ### Workflow trigger and runner
 
-The workflow is deliberately limited to manual `workflow_dispatch`.
-It has no `push` or `pull_request` trigger. It runs on the
+The workflow is limited to manual `workflow_dispatch`, has no dispatch
+inputs, and has no `push` or `pull_request` trigger. To run this reviewed
+definition before PR #2 is merged, select branch
+`research/native-p3b-afh-crosscheck-pr65` in the Actions branch selector;
+selecting `main` would execute the older main-branch workflow definition.
+The source commit and both artifact identities are fixed in the workflow
+and are changed only through a reviewed update. It runs on the
 `[self-hosted, Windows, X64, research-gpu]` runner. Before dispatch,
 confirm that the runner is Online/Idle, `wolframscript -version` works
 under its runner account, Wolfram Engine is installed and activated, and
-`LZ_RESEARCH_READ_TOKEN` has Contents: Read-only access to
+`LZ_RESEARCH_READ_TOKEN` has **Contents: Read-only** permission for the private source checkout and **Actions: Read-only** permission for cross-repository artifact download on
 `lm846802297-bit/LZ-3-body-for-hdm`.
 
 The earlier control-repository push-triggered run
 [44346207069](https://github.com/lm846802297-bit/research-compute-control/actions/runs/44346207069)
 was cancelled and produced no artifact. The PR #2 branch removes that
-automatic push trigger. The workflow uploads its result bundle to this
+automatic push trigger. Before comparison, the workflow verifies the fixed P3-B artifact status,
+AFH package hash, isotope set, 16,807/9,604 row counts, and both CSV
+SHA-256 values. It records the actual Windows OS, CPU, memory, GPU/driver
+inventory when available, Wolfram version, Python version, pip version,
+installed Python package set, and output checksums in the run archive.
+
+The workflow uploads its result bundle to this
 control repository; it does not write to the LZ research repository.
 
 ### Calculation and acceptance scope
