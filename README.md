@@ -6,7 +6,7 @@ Private control repository for trusted research jobs on a Windows self-hosted ru
 
 ## Current status
 
-The native AFH workflow is pinned to LZ-3-body-for-hdm commit `5afc500a3102b857dd16e29432db8e6e068d65d1` and is triggered only by manual `workflow_dispatch`; pushes and pull requests do not start it. The last recorded attempt (run `44346207069`, event `push`, source branch `research/native-p3b-afh-crosscheck-pr65`) was cancelled and produced no native AFH output or validation artifact. The current PR #2 head the current PR #2 branch has no native workflow run. The P3-B input artifact `provisional-afh-spatial-obdme-responses` (LZ run 44337928314, artifact 14443055701) is a source-translated AFH result with `native_mathematica_spatial_crosscheck=false`; it is a provisional comparison input, not a native validation result. Dispatch the native cross-check only after the Windows/X64/research-gpu runner is confirmed Online/Idle. The workflow uploads an artifact to this control repository and does not publish to the research repository.
+The native AFH exporter checkout is pinned to LZ-3-body-for-hdm commit `5afc500a3102b857dd16e29432db8e6e068d65d1`; the separate P3-B input artifact was produced from merge commit `61d7391aae3028276b0846802c19f2404a8a59f4` by run `44950264673` (artifact `14724884350`). The workflow is triggered only by manual `workflow_dispatch`; pushes and pull requests do not start it. The last recorded attempt (run `44346207069`, event `push`, source branch `research/native-p3b-afh-crosscheck-pr65`) was cancelled and produced no native AFH output or validation artifact. The current PR #2 branch has no native workflow run. The P3-B input artifact `provisional-afh-spatial-obdme-responses` (LZ run 44950264673, artifact 14724884350) is a source-translated AFH result with `native_mathematica_spatial_crosscheck=false`; it is a provisional comparison input, not a native validation result. Dispatch the native cross-check only after the Windows/X64/research-gpu runner is confirmed Online/Idle. The workflow uploads an artifact to this control repository and does not publish to the research repository.
 
 ## Register the Windows runner
 
@@ -61,7 +61,7 @@ to `lm846802297-bit/LZ-3-body-for-hdm`. The workflow does not write back to
 the research repository.
 
 The last recorded native attempt is run `44346207069` (event `push`, head `6f92b1a7e26dfd2d2708c6fc1bc1bc233f1d92ef`); it is `cancelled` and has no output artifact. There is no native AFH result on the current PR #2 head the current PR #2 branch. The manual workflow pins the LZ research checkout to
-`5afc500a3102b857dd16e29432db8e6e068d65d1` and consumes the P3-B spatial artifact from LZ run 44337928314, artifact 14443055701.
+`5afc500a3102b857dd16e29432db8e6e068d65d1` and consumes the P3-B spatial artifact from LZ run 44950264673, artifact 14724884350.
 
 **The provisional Python artifact consumed by PR #58 and the native
 workflow are in fact source-aligned.** The PR #58 artifact is from LZ
