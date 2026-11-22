@@ -2,41 +2,34 @@ name: Seven-isotope native AFH v6.0 eight-response cross-check
 
 on:
   workflow_dispatch:
-    inputs:
-      source_sha:
-        description: "Exact reviewed LZ-3-body-for-hdm commit SHA"
-        required: true
-        type: string
-        default: "61d7391aae3028276b0846802c19f2404a8a59f4"
-      p3_run_id:
-        description: "LZ-3-body-for-hdm workflow run containing the P3-B spatial artifact"
-        required: true
-        type: string
-        default: "44950264673"
-      p3_artifact_id:
-        description: "P3-B seven-isotope spatial-response artifact ID"
-        required: true
-        type: string
-        default: "14724884350"
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/xe131-afh-spatial-native.yml"
 
 permissions:
   contents: read
 
+env:
+  SOURCE_SHA: "3f13b37611d043f823b39ac8ebd8ee7e7ae4ebbc"
+  AFH_SOURCE_SHA256: "dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372"
+  P3_SOURCE_COMMIT: "61d7391aae3028276b0846802c19f2404a8a59f4"
+  P3_RUN_HEAD_SHA: "6f224347b446af5c9f67f061695ef831b6856ee0"
+  P3_RUN_ID: "44950264673"
+  P3_ARTIFACT_ID: "14724884350"
+  P3_ARTIFACT_NAME: "provisional-afh-spatial-obdme-responses"
+  P3_ARTIFACT_SHA256: "b291a5a1bea1edfbc766084097ebef756b58ecae5fb3cf4aa9ff16a92d6af11c"
+  P3_ARTIFACT_SIZE_BYTES: "1125446"
+  NATIVE_REFERENCE_RUN_ID: "44919924790"
+  NATIVE_REFERENCE_ARTIFACT_ID: "14713605942"
+  NATIVE_REFERENCE_ARTIFACT_NAME: "afh-v6-seven-isotope-eight-response"
+  NATIVE_REFERENCE_ARTIFACT_SHA256: "0fed6d80870710ef044bdeb9a49de7cb01765a0553a9717ace468e60eaeebe4f"
+  NATIVE_REFERENCE_ARTIFACT_SIZE_BYTES: "2335579"
+
 concurrency:
   group: xe131-afh-spatial-native
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   native-afh-eight-response:
     runs-on: [self-hosted, Windows, X64, research-gpu]
     timeout-minutes: 180
-    env:
-      SOURCE_SHA: ${{ github.event.inputs.source_sha || '61d7391aae3028276b0846802c19f2404a8a59f4' }}
     steps:
       - name: Check out the private control repository
         uses: actions/checkout@v4
@@ -45,7 +38,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: lm846802297-bit/LZ-3-body-for-hdm
-          ref: ${{ github.event.inputs.source_sha || '61d7391aae3028276b0846802c19f2404a8a59f4' }}
+          ref: ${{ env.SOURCE_SHA }}
           token: ${{ secrets.LZ_RESEARCH_READ_TOKEN }}
           path: research
           persist-credentials: false
@@ -85,7 +78,16 @@ jobs:
               throw "Required pinned research input is missing: $candidate"
             }
           }
+          $afhPackage = Join-Path $env:GITHUB_WORKSPACE 'research\v6\dmformfactor-V6.m'
+          if (-not (Test-Path $afhPackage -PathType Leaf)) {
+            throw "Pinned AFH v6.0 package is missing: $afhPackage"
+          }
+          $afhHash = (Get-FileHash $afhPackage -Algorithm SHA256).Hash.ToLower()
+          if ($afhHash -ne $env:AFH_SOURCE_SHA256) {
+            throw "AFH v6.0 package SHA-256 mismatch: expected $env:AFH_SOURCE_SHA256, got $afhHash"
+          }
           Write-Host "Verified pinned research source $actual"
+          Write-Host "Verified AFH v6.0 source SHA-256 $afhHash"
 
       - name: Verify Wolfram and prepare isolated Python environment
         shell: powershell
@@ -107,6 +109,49 @@ jobs:
           New-Item -ItemType Directory -Force -Path $out | Out-Null
           @($wolframVersion) | Set-Content -Path (Join-Path $out 'wolfram-version.txt') -Encoding UTF8
           & $pythonExe --version 2>&1 | Set-Content -Path (Join-Path $out 'python-version.txt') -Encoding UTF8
+          if ($LASTEXITCODE -ne 0) { throw 'Could not record Python version.' }
+          & $pythonExe -m pip --version 2>&1 | Set-Content -Path (Join-Path $out 'pip-version.txt') -Encoding UTF8
+          if ($LASTEXITCODE -ne 0) { throw 'Could not record pip version.' }
+          & $pythonExe -m pip freeze | Set-Content -Path (Join-Path $out 'python-packages.txt') -Encoding UTF8
+          if ($LASTEXITCODE -ne 0) { throw 'Could not record installed Python packages.' }
+          $hardware = [ordered]@{
+            runner_name = $env:RUNNER_NAME
+            runner_os = $env:RUNNER_OS
+            runner_arch = $env:RUNNER_ARCH
+            os_caption = $null
+            os_version = $null
+            os_build = $null
+            cpu_names = @()
+            cpu_cores = $null
+            logical_processors = $null
+            physical_memory_bytes = $null
+            gpu_inventory = 'nvidia-smi unavailable'
+          }
+          try {
+            $osInfo = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+            $cpuInfo = @(Get-CimInstance Win32_Processor -ErrorAction Stop)
+            $computerInfo = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+            $hardware.os_caption = $osInfo.Caption
+            $hardware.os_version = $osInfo.Version
+            $hardware.os_build = $osInfo.BuildNumber
+            $hardware.cpu_names = @($cpuInfo | ForEach-Object { $_.Name.Trim() } | Select-Object -Unique)
+            $hardware.cpu_cores = ($cpuInfo | Measure-Object -Property NumberOfCores -Sum).Sum
+            $hardware.logical_processors = ($cpuInfo | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
+            $hardware.physical_memory_bytes = [int64]$computerInfo.TotalPhysicalMemory
+          } catch {
+            $hardware.hardware_query_error = $_.Exception.Message
+          }
+          try {
+            $gpuOutput = & nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              $hardware.gpu_inventory = @($gpuOutput)
+            } else {
+              $hardware.gpu_inventory = "nvidia-smi exit $LASTEXITCODE: $($gpuOutput -join ' ')"
+            }
+          } catch {
+            $hardware.gpu_inventory = "nvidia-smi unavailable: $($_.Exception.Message)"
+          }
+          $hardware | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $out 'runner-hardware.json') -Encoding UTF8
 
       - name: Run native AFH v6.0 ResponseNuclear indices 1 through 8
         shell: powershell
@@ -118,6 +163,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $nativeDir | Out-Null
           $env:AFH_FULL_RESPONSE_OUTDIR = $nativeDir
           $env:DMFormFactorPath = Join-Path $env:GITHUB_WORKSPACE 'research\v6\dmformfactor-V6.m'
+          $env:AFH_SOURCE_COMMIT = $env:SOURCE_SHA
           $transcript = Join-Path $out 'native-wolfram-transcript.txt'
           Start-Transcript -Path $transcript -Force
           try {
@@ -191,7 +237,7 @@ jobs:
           $nativeRows = @(Import-Csv $nativeCsv)
           if ($nativeRows.Count -ne 9604) { throw "Expected 9,604 native multipole rows, got $($nativeRows.Count)." }
           $nativeMeta = Get-Content -Raw $nativeMetadata
-          if ($nativeMeta -notmatch 'AFH_source_sha256=dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372') {
+          if ($nativeMeta -notmatch "AFH_source_sha256=$($env:AFH_SOURCE_SHA256)") {
             throw 'Native multipole AFH source SHA-256 does not match the reviewed v6.0 source.'
           }
           if ($nativeMeta -notmatch 'rank_map=129=1;131=1,2,3') {
@@ -295,6 +341,16 @@ jobs:
             $manifest = [ordered]@{
               repository = 'lm846802297-bit/LZ-3-body-for-hdm'
               source_commit = $env:SOURCE_SHA
+              native_reference_workflow_runs = @('44919924782', $env:NATIVE_REFERENCE_RUN_ID)
+              native_reference_artifact = [ordered]@{
+                run_id = $env:NATIVE_REFERENCE_RUN_ID
+                artifact_id = $env:NATIVE_REFERENCE_ARTIFACT_ID
+                name = $env:NATIVE_REFERENCE_ARTIFACT_NAME
+                sha256 = $env:NATIVE_REFERENCE_ARTIFACT_SHA256
+                size_bytes = [int]$env:NATIVE_REFERENCE_ARTIFACT_SIZE_BYTES
+              }
+              afh_source_sha256 = $env:AFH_SOURCE_SHA256
+              runner_environment_records = @('runner-hardware.json','python-version.txt','pip-version.txt','python-packages.txt','wolfram-version.txt')
               control_run_id = $env:GITHUB_RUN_ID
               control_run_attempt = $env:GITHUB_RUN_ATTEMPT
               native_package = 'AFH DMFormFactor v6.0'
@@ -334,11 +390,56 @@ jobs:
       - name: Download the P3-B spatial response and rank-resolved multipole artifact
         uses: actions/download-artifact@v4
         with:
-          artifact-ids: ${{ github.event.inputs.p3_artifact_id || '14724884350' }}
+          artifact-ids: ${{ env.P3_ARTIFACT_ID }}
           github-token: ${{ secrets.LZ_RESEARCH_READ_TOKEN }}
           repository: lm846802297-bit/LZ-3-body-for-hdm
-          run-id: ${{ github.event.inputs.p3_run_id || '44950264673' }}
+          run-id: ${{ env.P3_RUN_ID }}
           path: ${{ runner.temp }}/afh-eight-response/p3-spatial
+          merge-multiple: true
+
+      - name: Verify fixed P3-B artifact metadata and input hashes
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $p3Dir = Join-Path $env:RUNNER_TEMP 'afh-eight-response\p3-spatial'
+          $metadataPath = Join-Path $p3Dir 'metadata.json'
+          $validationPath = Join-Path $p3Dir 'multipole-validation.json'
+          $responsePath = Join-Path $p3Dir 'afh_spatial_obdme_responses_7isotope_2401.csv'
+          $multipolePath = Join-Path $p3Dir 'afh_spatial_obdme_multipoles_7isotope_2401.csv'
+          foreach ($path in @($metadataPath,$validationPath,$responsePath,$multipolePath)) {
+            if (-not (Test-Path $path -PathType Leaf)) { throw "Pinned P3-B artifact file is missing: $path" }
+          }
+          $metadata = Get-Content -Raw $metadataPath | ConvertFrom-Json
+          $validation = Get-Content -Raw $validationPath | ConvertFrom-Json
+          if ($metadata.status -ne 'PROVISIONAL_SOURCE_TRANSLATED_AFH_SPATIAL_RESPONSES') {
+            throw "Unexpected P3-B artifact status: $($metadata.status)"
+          }
+          if ($metadata.native_mathematica_spatial_crosscheck -ne $false) {
+            throw 'P3-B input must remain explicitly source-translated and provisional.'
+          }
+          if ($metadata.source_file_sha256 -ne $env:AFH_SOURCE_SHA256) {
+            throw 'P3-B artifact AFH source hash does not match the pinned AFH v6.0 package.'
+          }
+          if ($metadata.q_points_per_isotope -ne 2401 -or $metadata.response_rows -ne 16807 -or $metadata.multipole_rows -ne 9604) {
+            throw 'P3-B artifact grid or row counts do not match the pinned seven-isotope dataset.'
+          }
+          $expectedIsotopes = @(128,129,130,131,132,134,136)
+          if (($metadata.isotopes -join ',') -ne ($expectedIsotopes -join ',')) {
+            throw "P3-B isotope set mismatch: $($metadata.isotopes -join ',')"
+          }
+          $responseHash = (Get-FileHash $responsePath -Algorithm SHA256).Hash.ToLower()
+          $multipoleHash = (Get-FileHash $multipolePath -Algorithm SHA256).Hash.ToLower()
+          if ($responseHash -ne '4e0a23c18d29df3af04a2531e75b7bffeaa3251d0efe97674b2287cf3c25e7e3' -or $responseHash -ne $metadata.response_file_sha256) {
+            throw "P3-B response CSV SHA-256 mismatch: $responseHash"
+          }
+          if ($multipoleHash -ne 'e83f7499cd0af4ec8f1974238f09daf4899ca1b87205ec837ae0964a2e8532c6' -or $multipoleHash -ne $metadata.multipole_file_sha256) {
+            throw "P3-B multipole CSV SHA-256 mismatch: $multipoleHash"
+          }
+          if ($validation.status -ne 'PASS_AFH_SPATIAL_MULTIPOLE_ARCHIVE' -or $validation.native_afh_validated -ne $false -or $validation.rows_total_responses -ne 16807 -or $validation.rows_rank_resolved_multipoles -ne 9604) {
+            throw 'P3-B archive integrity validation record does not match the expected provisional state.'
+          }
+          Write-Host "Verified P3-B artifact $env:P3_ARTIFACT_ID from run $env:P3_RUN_ID"
+          Write-Host "Verified response rows=16807, multipole rows=9604, source AFH SHA-256=$($metadata.source_file_sha256)"
 
       - name: Compile and test native P3 multipole comparator
         shell: powershell
@@ -383,8 +484,15 @@ jobs:
             $manifest | Add-Member -NotePropertyName p3_spatial_multipole_crosscheck -NotePropertyValue $p3Comparison -Force
             $manifest | Add-Member -NotePropertyName p3_artifact_provenance -NotePropertyValue ([ordered]@{
               repository = 'lm846802297-bit/LZ-3-body-for-hdm'
-              run_id = '${{ github.event.inputs.p3_run_id || '44950264673' }}'
-              artifact_id = '${{ github.event.inputs.p3_artifact_id || '14724884350' }}'
+              source_commit = $env:P3_SOURCE_COMMIT
+              run_head_sha = $env:P3_RUN_HEAD_SHA
+              run_event = 'pull_request'
+              workflow_path = '.github/workflows/three-body-full-current-nucleon-match.yml'
+              run_id = $env:P3_RUN_ID
+              artifact_id = $env:P3_ARTIFACT_ID
+              artifact_name = $env:P3_ARTIFACT_NAME
+              artifact_sha256 = $env:P3_ARTIFACT_SHA256
+              artifact_size_bytes = [int]$env:P3_ARTIFACT_SIZE_BYTES
             }) -Force
             $manifest | ConvertTo-Json -Depth 32 | Set-Content -Path $manifestPath -Encoding UTF8
           }
