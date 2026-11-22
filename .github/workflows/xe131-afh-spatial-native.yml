@@ -4,17 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       source_sha:
-        description: "Exact reviewed LZ-3-body-for-hdm commit SHA"
+        description: "Exact reviewed LZ commit containing the native AFH exporter and comparison code; distinct from the P3-B artifact source commit"
         required: true
         type: string
         default: "3f13b37611d043f823b39ac8ebd8ee7e7ae4ebbc"
       p3_run_id:
-        description: "LZ-3-body-for-hdm workflow run containing the P3-B spatial artifact"
+        description: "LZ workflow run containing the P3-B source-translated spatial artifact"
         required: true
         type: string
         default: "44950264673"
       p3_artifact_id:
-        description: "P3-B seven-isotope spatial-response artifact ID"
+        description: "P3-B seven-isotope source-translated spatial-response artifact ID"
         required: true
         type: string
         default: "14724884350"
@@ -380,6 +380,7 @@ jobs:
             $manifest | Add-Member -NotePropertyName p3_artifact_provenance -NotePropertyValue ([ordered]@{
               repository = 'lm846802297-bit/LZ-3-body-for-hdm'
               source_commit = '61d7391aae3028276b0846802c19f2404a8a59f4'
+              run_head_sha = '6f224347b446af5c9f67f061695ef831b6856ee0'
               run_id = '${{ github.event.inputs.p3_run_id || '44950264673' }}'
               artifact_id = '${{ github.event.inputs.p3_artifact_id || '14724884350' }}'
             }) -Force
