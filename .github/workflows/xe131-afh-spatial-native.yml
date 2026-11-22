@@ -290,6 +290,7 @@ jobs:
             $manifest = [ordered]@{
               repository = 'lm846802297-bit/LZ-3-body-for-hdm'
               source_commit = $env:SOURCE_SHA
+              native_reference_workflow_runs = @('44919924782','44919924790')
               control_run_id = $env:GITHUB_RUN_ID
               control_run_attempt = $env:GITHUB_RUN_ATTEMPT
               native_package = 'AFH DMFormFactor v6.0'
