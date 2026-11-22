@@ -33,56 +33,66 @@ The project-wide [RESEARCH_COMPUTE_POLICY.md](RESEARCH_COMPUTE_POLICY.md) define
 
 The reviewed workflow is
 [xe131-afh-spatial-native.yml](.github/workflows/xe131-afh-spatial-native.yml).
-It is pinned to the exact P3-B source merge commit
-61d7391aae3028276b0846802c19f2404a8a59f4 and the spatial-response artifact
-from LZ-3-body-for-hdm workflow run 44950264673, artifact 14724884350.
+It uses two deliberately separate, full-SHA-pinned checkouts:
 
-Pinned input hashes:
-- AFH v6.0 source: dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372.
-- Seven-isotope spatial-response CSV:
-  4e0a23c18d29df3af04a2531e75b7bffeaa3251d0efe97674b2287cf3c25e7e3.
-- Rank-resolved spatial multipole CSV:
-  e83f7499cd0af4ec8f1974238f09daf4899ca1b87205ec837ae0964a2e8532c6.
+| Role | Exact commit | Contents |
+|---|---|---|
+| Native AFH exporter source | `aa493b2b76727da2fd51609fe87c647910f7e456` | Seven-isotope AFH generator, validator, native Wolfram eight-response exporter, rank-resolved Delta/SigmaPrime exporter |
+| P3 comparator and dense-grid source | `61d7391aae3028276b0846802c19f2404a8a59f4` | Xe-131 dense charge-dip WLS exporter and the two P3-vs-native AFH comparators |
 
-The native exporter evaluates AFH v6.0 ResponseNuclear[y,index,0,0] for
+The P3-B input is LZ-3-body-for-hdm workflow run
+[44950264673](https://github.com/lm846802297-bit/LZ-3-body-for-hdm/actions/runs/44950264673),
+artifact **14724884350**. The artifact is source-translated Python AFH data;
+it remains provisional until the direct native comparisons pass.
+
+Both pinned checkouts contain the same AFH v6.0 package blob
+`91b43b1a4596bebd6073ecd44c0c9464e5dd0c63`. The workflow independently
+checks its SHA-256:
+`dc0742f1c50b0a478adab62f2ddef6c82978ee034c1f177e0ed917deab5dd372`.
+
+The native exporter evaluates AFH v6.0 `ResponseNuclear[y,index,0,0]` for
 indices 1--8 and the seven available default-density isotopes:
 Xe-128, Xe-129, Xe-130, Xe-131, Xe-132, Xe-134, and Xe-136. The common
-response grid contains 2,401 points from 0 to 0.6 GeV, for 16,807 isotope/q
-rows. The workflow also exports the 121-point Xe-131 dense charge dip and
-native rank-resolved Xe-129/Xe-131 DeltaJ/SigmaPJ multipoles, then runs the
-pointwise comparators and writes source/input/output provenance and SHA-256
-manifests.
+response grid contains 2,401 points from 0 to 0.6 GeV, giving 16,807
+isotope/q rows. The workflow also exports the 121-point Xe-131 dense charge
+dip and native rank-resolved Xe-129/Xe-131 DeltaJ/SigmaPJ multipoles
+(9,604 amplitude rows).
 
-The eight response channels are M, Sigma-double-prime, Sigma-prime,
+The P3-B comparison is split into two independent acceptance gates:
+
+1. Compare the three spatial response channels Delta, SigmaPrime, and
+   SigmaPrime-Delta against native AFH for all 16,807 isotope/q rows.
+2. Compare the signed rank-resolved DeltaJ and SigmaPrimeJ amplitudes for
+   Xe-129 and Xe-131 across all 9,604 (A,q,J) rows.
+
+The eight native response channels are M, Sigma-double-prime, Sigma-prime,
 Phi-double-prime, Phi-tilde-prime, Delta, M--Phi-double-prime interference,
-and Sigma-prime--Delta interference. It preserves the raw isoscalar package
-convention and exports imaginary residuals separately. Physical conversion
-is R_X_raw=4*pi*W_X/(2*J_A+1), with the equal-p/n factor four applied only
-once in physical output columns.
+and Sigma-prime--Delta interference. The workflow preserves the raw
+isoscalar package convention, exports imaginary residuals separately, and
+applies the equal-p/n factor four only in physical output columns.
 
-Acceptance requires pointwise relative tolerance 5e-7, absolute tolerance
-2e-12, negligible imaginary parts, rank-sum reconstruction, and the
-Cauchy/PSD checks. The native result is independent of the Python
-source-translated response archive; the latter remains PROVISIONAL until
-the native pointwise comparison passes. This workflow does not calculate
-finite-t_N nucleon form factors, the complete three-body
-L_munu^(3) W_A^(munu) contraction, halo folding, or detector predictions.
+Acceptance requires relative tolerance 5e-7, absolute tolerance 2e-12,
+negligible imaginary parts, exact q/y-grid alignment, rank-sum reconstruction,
+and the Cauchy/PSD checks. The run manifest records both source commits,
+the AFH package and seven density-matrix hashes, P3 artifact component hashes,
+Python package versions, Wolfram/Windows versions, CPU, memory, GPU visibility,
+and output SHA-256 values.
 
-The workflow is manual workflow_dispatch on the Windows/X64/research-gpu
+The workflow does not calculate finite-\(t_N\) nucleon form factors, the
+complete three-body \(L_{\mu\nu}^{(3)}W_A^{\mu\nu}\) contraction, halo folding,
+or detector predictions. It validates the AFH nuclear-response and spatial
+multipole inputs used by the separate P3 calculation.
+
+The workflow is manually dispatched on the Windows/X64/research-gpu
 self-hosted runner. Before dispatch, confirm that the runner is Online/Idle,
-wolframscript -version works under its runner account, Wolfram Engine is
-installed and activated, and the LZ_RESEARCH_READ_TOKEN secret has
-Contents: Read-only access to lm846802297-bit/LZ-3-body-for-hdm.
+`wolframscript -version` works under its runner account, Wolfram Engine is
+installed and activated, and `LZ_RESEARCH_READ_TOKEN` has Contents:
+Read-only access to `lm846802297-bit/LZ-3-body-for-hdm`.
 
-The main-branch workflow defaults are already pinned to the source merge
-commit and P3-B artifact above. A push-triggered attempt did not create a
-run. The rerun request for the previous cancelled attempt was accepted, but
-replacement job 136992427950 was cancelled before its first step (zero steps
-executed). There is no native Mathematica output yet. Manually dispatch the
-workflow after confirming the Windows runner is Online/Idle.
-
-A queued or cancelled native job is not a calculation result and must never
-be reported as a native AFH PASS.
+The source-path correction and dual-source pinning are proposed in the
+current native-AFH repair branch. That branch has not yet produced a native
+Mathematica output artifact. A queued or cancelled job is not a calculation
+result and must never be reported as a native AFH PASS.
 
 ## Native Xe-131 Mathematica full-cross-section run
 
