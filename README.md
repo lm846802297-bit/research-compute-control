@@ -46,8 +46,8 @@ The two commit pins are intentionally different. The native exporter and
 comparison code,
 `research/afh_full_response_database/run_afh_full_response_database.wls`
 and `compare_native_afh_full_response.py`, exist at
-`3f13b37611d043f823b39ac8ebd8ee7e7ae4ebbc). They are absent at
-`61d7391aae3028276b0846802c19f2404a8a59f4). Therefore
+`3f13b37611d043f823b39ac8ebd8ee7e7ae4ebbc`. They are absent at
+`61d7391aae3028276b0846802c19f2404a8a59f4`. Therefore
 `61d7391aae3028276b0846802c19f2404a8a59f4` is the P3-B artifact's
 source/provenance revision, not a valid replacement for the workflow's
 native-exporter `source_sha`.
@@ -59,6 +59,8 @@ a source-translated comparison input, not a native AFH validation result.
 The separate native reference run `44919924790` checked out
 `3f13b37611d043f823b39ac8ebd8ee7e7ae4ebbc`, passed its native AFH and
 spatial-multipole validation steps, and uploaded artifact `14713605942`.
+The companion Xe-131 dense charge-dip validation run `44919924782`
+also completed successfully.
 Its artifact is 2,335,579 bytes with ZIP SHA-256
 `0fed6d80870710ef044bdeb9a49de7cb01765a0553a9717ace468e60eaeebe4f`.
 The P3-B artifact is 1,125,446 bytes with ZIP SHA-256
